@@ -93,7 +93,6 @@ class GPV_Plugin
         require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-driver-dashboard.php';
 
         // Nuevos componentes para dashboard de conductor
-        require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-driver-dashboard.php';
         require_once GPV_PLUGIN_DIR . 'includes/class-gpv-quick-actions.php';
         require_once GPV_PLUGIN_DIR . 'includes/api/class-gpv-driver-dashboard-api.php';
 
