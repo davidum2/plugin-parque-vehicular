@@ -461,4 +461,4 @@ class GPV_Driver_Dashboard
 }
 
 // Inicializar el dashboard del conductor
-// $gpv_driver_dashboard = new GPV_Driver_Dashboard();
+$gpv_driver_dashboard = new GPV_Driver_Dashboard();

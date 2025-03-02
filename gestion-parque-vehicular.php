@@ -227,7 +227,7 @@ class GPV_Plugin
             'gpv_dashboard',
             'gpv_driver_panel',
             'gpv_consultant_panel',
-            'gpv_form_movimiento',
+            'gpv_form_salida',
             'gpv_form_carga',
             'gpv_form_vehiculo',
             'gpv_listado_movimientos'
