@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
-class GPV_Driver_Dashboard
+class GPV_Direver_Dashboard
 {
     /**
      * Database instance

@@ -1,13 +1,16 @@
 <?php
+
 /**
  * API REST para el plugin
  */
-class GPV_API {
+class GPV_API
+{
 
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         // Registrar rutas de la API
         add_action('rest_api_init', array($this, 'register_routes'));
     }
@@ -15,7 +18,8 @@ class GPV_API {
     /**
      * Registrar rutas de la API
      */
-    public function register_routes() {
+    public function register_routes()
+    {
         // Namespace para todas las rutas
         $namespace = 'gpv/v1';
 
@@ -137,95 +141,110 @@ class GPV_API {
     /**
      * Verificar permisos para vehículos
      */
-    public function check_vehicles_read_permission() {
+    public function check_vehicles_read_permission()
+    {
         return current_user_can('gpv_view_vehicles') ||
-               current_user_can('gpv_manage_vehicles') ||
-               current_user_can('gpv_view_assigned_vehicles');
+            current_user_can('gpv_manage_vehicles') ||
+            current_user_can('gpv_view_assigned_vehicles');
     }
 
-    public function check_vehicles_create_permission() {
+    public function check_vehicles_create_permission()
+    {
         return current_user_can('gpv_manage_vehicles');
     }
 
-    public function check_vehicles_update_permission() {
+    public function check_vehicles_update_permission()
+    {
         return current_user_can('gpv_manage_vehicles');
     }
 
-    public function check_vehicles_delete_permission() {
+    public function check_vehicles_delete_permission()
+    {
         return current_user_can('gpv_manage_vehicles');
     }
 
     /**
      * Verificar permisos para movimientos
      */
-    public function check_movements_read_permission() {
+    public function check_movements_read_permission()
+    {
         return current_user_can('gpv_view_movements') ||
-               current_user_can('gpv_manage_movements') ||
-               current_user_can('gpv_view_own_records');
+            current_user_can('gpv_manage_movements') ||
+            current_user_can('gpv_view_own_records');
     }
 
-    public function check_movements_create_permission() {
+    public function check_movements_create_permission()
+    {
         return current_user_can('gpv_register_movements') ||
-               current_user_can('gpv_manage_movements');
+            current_user_can('gpv_manage_movements');
     }
 
-    public function check_movements_update_permission() {
+    public function check_movements_update_permission()
+    {
         return current_user_can('gpv_manage_movements') ||
-               (current_user_can('gpv_register_movements') && $this->is_own_record('movements', $this->get_id_from_request()));
+            (current_user_can('gpv_register_movements') && $this->is_own_record('movements', $this->get_id_from_request()));
     }
 
     /**
      * Verificar permisos para cargas de combustible
      */
-    public function check_fuels_read_permission() {
+    public function check_fuels_read_permission()
+    {
         return current_user_can('gpv_view_fuel') ||
-               current_user_can('gpv_manage_fuel') ||
-               current_user_can('gpv_view_own_records');
+            current_user_can('gpv_manage_fuel') ||
+            current_user_can('gpv_view_own_records');
     }
 
-    public function check_fuels_create_permission() {
+    public function check_fuels_create_permission()
+    {
         return current_user_can('gpv_register_fuel') ||
-               current_user_can('gpv_manage_fuel');
+            current_user_can('gpv_manage_fuel');
     }
 
     /**
      * Verificar permisos para mantenimientos
      */
-    public function check_maintenances_read_permission() {
+    public function check_maintenances_read_permission()
+    {
         return current_user_can('gpv_view_maintenance') ||
-               current_user_can('gpv_manage_maintenance');
+            current_user_can('gpv_manage_maintenance');
     }
 
-    public function check_maintenances_create_permission() {
+    public function check_maintenances_create_permission()
+    {
         return current_user_can('gpv_manage_maintenance');
     }
 
     /**
      * Verificar permisos para dashboard
      */
-    public function check_dashboard_permission() {
+    public function check_dashboard_permission()
+    {
         return current_user_can('gpv_view_dashboard');
     }
 
     /**
      * Verificar permisos para estadísticas
      */
-    public function check_stats_permission() {
+    public function check_stats_permission()
+    {
         return current_user_can('gpv_generate_reports') ||
-               current_user_can('gpv_view_dashboard');
+            current_user_can('gpv_view_dashboard');
     }
 
     /**
      * Verificar permisos para sincronización
      */
-    public function check_sync_permission() {
+    public function check_sync_permission()
+    {
         return is_user_logged_in();
     }
 
     /**
      * Verificar si un registro pertenece al usuario actual
      */
-    private function is_own_record($table, $id) {
+    private function is_own_record($table, $id)
+    {
         global $wpdb;
         $user_id = get_current_user_id();
 
@@ -234,7 +253,8 @@ class GPV_API {
             $result = $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT COUNT(*) FROM $tabla WHERE id = %d AND conductor_id = %d",
-                    $id, $user_id
+                    $id,
+                    $user_id
                 )
             );
         } else if ($table === 'fuels') {
@@ -242,7 +262,8 @@ class GPV_API {
             $result = $wpdb->get_var(
                 $wpdb->prepare(
                     "SELECT COUNT(*) FROM $tabla WHERE id = %d AND conductor_id = %d",
-                    $id, $user_id
+                    $id,
+                    $user_id
                 )
             );
         } else {
@@ -255,14 +276,16 @@ class GPV_API {
     /**
      * Obtener ID desde la request
      */
-    private function get_id_from_request() {
+    private function get_id_from_request()
+    {
         return isset($_REQUEST['id']) ? intval($_REQUEST['id']) : 0;
     }
 
     /**
      * Obtener vehículos
      */
-    public function get_vehicles($request) {
+    public function get_vehicles($request)
+    {
         global $wpdb;
         $database = new GPV_Database();
 
@@ -293,7 +316,8 @@ class GPV_API {
     /**
      * Obtener un vehículo específico
      */
-    public function get_vehicle($request) {
+    public function get_vehicle($request)
+    {
         $database = new GPV_Database();
         $id = $request['id'];
 
@@ -328,7 +352,12 @@ class GPV_API {
     /**
      * Crear un nuevo vehículo
      */
-    public function create_vehicle($request) {
+    /**
+     * Crear un nuevo vehículo
+     */
+    public function create_vehicle($request)
+    {
+        global $wpdb; // Agregar esta línea
         $database = new GPV_Database();
         $params = $request->get_params();
 
@@ -365,7 +394,8 @@ class GPV_API {
     /**
      * Actualizar un vehículo
      */
-    public function update_vehicle($request) {
+    public function update_vehicle($request)
+    {
         $database = new GPV_Database();
         $id = $request['id'];
         $params = $request->get_params();
@@ -404,7 +434,8 @@ class GPV_API {
     /**
      * Obtener movimientos
      */
-    public function get_movements($request) {
+    public function get_movements($request)
+    {
         $database = new GPV_Database();
 
         // Obtener parámetros de la solicitud
@@ -427,7 +458,8 @@ class GPV_API {
     /**
      * Crear un nuevo movimiento
      */
-    public function create_movement($request) {
+    public function create_movement($request)
+    {
         $database = new GPV_Database();
         $params = $request->get_params();
 
@@ -491,7 +523,8 @@ class GPV_API {
     /**
      * Actualizar un movimiento (por ejemplo, al regresar)
      */
-    public function update_movement($request) {
+    public function update_movement($request)
+    {
         $database = new GPV_Database();
         $id = $request['id'];
         $params = $request->get_params();
@@ -552,7 +585,8 @@ class GPV_API {
     /**
      * Obtener datos para el dashboard
      */
-    public function get_dashboard_data($request) {
+    public function get_dashboard_data($request)
+    {
         $database = new GPV_Database();
 
         // Datos básicos para el dashboard
@@ -667,7 +701,8 @@ class GPV_API {
     /**
      * Sincronizar datos offline
      */
-    public function sync_offline_data($request) {
+    public function sync_offline_data($request)
+    {
         $database = new GPV_Database();
         $params = $request->get_params();
 
