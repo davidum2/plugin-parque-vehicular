@@ -1,13 +1,16 @@
 <?php
+
 /**
- * Gestión de roles y permisos para el plugin
+ * Gestión de roles y permisos para el plugin Gestión de Parque Vehicular
  */
-class GPV_Roles {
+class GPV_Roles
+{
 
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         // Hook para verificar permisos en cada petición
         add_action('init', array($this, 'check_capabilities'));
     }
@@ -15,7 +18,8 @@ class GPV_Roles {
     /**
      * Agregar roles personalizados
      */
-    public function add_roles() {
+    public function add_roles()
+    {
         // Administrador de flota
         add_role(
             'gpv_administrator',
@@ -62,7 +66,8 @@ class GPV_Roles {
     /**
      * Agregar capacidades específicas para cada rol
      */
-    private function add_gpv_capabilities() {
+    private function add_gpv_capabilities()
+    {
         $admin_role = get_role('gpv_administrator');
         $consultant_role = get_role('gpv_consultant');
         $operator_role = get_role('gpv_operator');
@@ -111,7 +116,7 @@ class GPV_Roles {
                 $admin_role->add_cap($cap, $grant);
             }
             if ($admin_wp) {
-                $admin_wp->add_cap($cap, $grant); // También al admin WP
+                $admin_wp->add_cap($cap, $grant); // También al admin de WP
             }
         }
 
@@ -131,7 +136,8 @@ class GPV_Roles {
     /**
      * Verificar permisos en cada petición
      */
-    public function check_capabilities() {
+    public function check_capabilities()
+    {
         // Solo verificar en áreas del plugin
         if (!is_admin() && !$this->is_gpv_page()) {
             return;
@@ -161,7 +167,8 @@ class GPV_Roles {
     /**
      * Verificar si estamos en una página del plugin
      */
-    private function is_gpv_page() {
+    private function is_gpv_page()
+    {
         // Verificar solo si estamos en una página singular
         if (!is_singular()) {
             return false;
@@ -183,7 +190,8 @@ class GPV_Roles {
             'gpv_form_movimiento',
             'gpv_form_carga',
             'gpv_form_vehiculo',
-            'gpv_listado_movimientos'
+            'gpv_listado_movimientos',
+            'gpv_driver_dashboard'  // Nuevo shortcode añadido
         ];
 
         foreach ($gpv_shortcodes as $shortcode) {
@@ -199,7 +207,8 @@ class GPV_Roles {
     /**
      * Verificar acceso a páginas específicas
      */
-    private function verify_page_access($page, $user) {
+    private function verify_page_access($page, $user)
+    {
         $access_denied = false;
 
         switch ($page) {
