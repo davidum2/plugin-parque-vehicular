@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Gestión de Parque Vehicular PWA
  * Description: Sistema completo para gestionar flota vehicular con funcionalidad PWA, roles específicos y dashboard en tiempo real.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: Desarrollo Digital
  * Text Domain: gestion-parque-vehicular
  * Domain Path: /languages
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definiciones globales
-define('GPV_VERSION', '2.0.0');
+define('GPV_VERSION', '2.1.0');
 define('GPV_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('GPV_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('GPV_PLUGIN_FILE', __FILE__);
@@ -92,7 +92,12 @@ class GPV_Plugin
         // Dashboard
         require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-dashboard.php';
 
-        // Admin - Se carga al final para asegurar que todas las dependencias estén disponibles
+        // Nuevos componentes para dashboard de conductor
+        require_once GPV_PLUGIN_DIR . 'includes/dashboard/lass-gpv-driver-dashboard.php';
+        require_once GPV_PLUGIN_DIR . 'includes/class-gpv-quick-actions.php';
+        require_once GPV_PLUGIN_DIR . 'includes/api/class-gpv-driver-dashboard-api.php';
+
+        // Admin
         require_once GPV_PLUGIN_DIR . 'admin/class-gpv-admin.php';
     }
 
@@ -105,22 +110,17 @@ class GPV_Plugin
         load_plugin_textdomain('gestion-parque-vehicular', false, dirname(plugin_basename(GPV_PLUGIN_FILE)) . '/languages');
 
         // Inicializar clases principales
-        // La base de datos debe inicializarse primero
         global $GPV_Database;
         $GPV_Database = new GPV_Database();
         $this->database = $GPV_Database;
 
-        // Roles y permisos
+        // Inicializar componentes
         $gpv_roles = new GPV_Roles();
-
-        // Dashboard
         $gpv_dashboard = new GPV_Dashboard();
-
-        // PWA
+        $gpv_driver_dashboard = new GPV_Driver_Dashboard();
         $gpv_pwa = new GPV_PWA();
-
-        // API
         $gpv_api = new GPV_API();
+        $gpv_quick_actions = new GPV_Quick_Actions();
 
         // Inicializar assets
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_assets'));
@@ -164,6 +164,17 @@ class GPV_Plugin
             wp_enqueue_script('gpv-frontend-app', GPV_PLUGIN_URL . 'assets/js/frontend-app.js', ['jquery', 'wp-api'], GPV_VERSION, true);
         }
 
+        // Script específico para dashboard de conductor
+        if ($this->is_driver_dashboard_page()) {
+            // Cargar dependencias de React
+            wp_enqueue_script('react', 'https://unpkg.com/react@17/umd/react.production.min.js', [], '17.0.2', true);
+            wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@17/umd/react-dom.production.min.js', ['react'], '17.0.2', true);
+
+            // Cargar script del dashboard de conductor
+            wp_enqueue_script('gpv-driver-dashboard', GPV_PLUGIN_URL . 'assets/js/driver-dashboard.js', ['react', 'react-dom', 'wp-api'], GPV_VERSION, true);
+            wp_enqueue_style('gpv-driver-dashboard', GPV_PLUGIN_URL . 'assets/css/driver-dashboard.css', [], GPV_VERSION);
+        }
+
         // Servicio PWA solo para usuarios logueados
         if (is_user_logged_in() && $this->is_gpv_page() && class_exists('GPV_PWA')) {
             // Localizar script para PWA
@@ -198,7 +209,7 @@ class GPV_Plugin
     }
 
     /**
-     * Verifica si estamos en una página del plugin
+     * Verificar si estamos en una página del plugin
      */
     private function is_gpv_page()
     {
@@ -229,6 +240,17 @@ class GPV_Plugin
         }
 
         return false;
+    }
+
+    /**
+     * Verificar si es la página de dashboard de conductor
+     */
+    private function is_driver_dashboard_page()
+    {
+        global $post;
+        return is_singular() &&
+            $post &&
+            has_shortcode($post->post_content, 'gpv_driver_dashboard');
     }
 
     /**
@@ -297,7 +319,7 @@ class GPV_Plugin
             ],
             'gpv-driver-panel' => [
                 'title' => __('Panel de Conductor', 'gestion-parque-vehicular'),
-                'content' => '<!-- wp:shortcode -->[gpv_driver_panel]<!-- /wp:shortcode -->'
+                'content' => '<!-- wp:shortcode -->[gpv_driver_dashboard]<!-- /wp:shortcode -->'
             ],
             'gpv-consultant-panel' => [
                 'title' => __('Panel de Consulta', 'gestion-parque-vehicular'),
@@ -322,28 +344,9 @@ class GPV_Plugin
     }
 }
 
-// Iniciar el plugin
+// Función de inicialización del plugin
 function GPV()
 {
     return GPV_Plugin::get_instance();
 }
 $GLOBALS['GPV'] = GPV();
-
-// En el archivo principal del plugin
-function GPV_init()
-{
-    global $GPV_Database;
-
-    // Inicializar la base de datos primero
-    require_once plugin_dir_path(__FILE__) . 'includes/class-gpv-database.php';
-    $GPV_Database = new GPV_Database();
-
-    // Luego incluir y inicializar shortcodes
-    require_once plugin_dir_path(__FILE__) . 'includes/class-gpv-shortcodes.php';
-    $GPV_Shortcodes = new GPV_Shortcodes();
-
-    // Registrar shortcodes
-    add_shortcode('gpv_form_movimiento', array($GPV_Shortcodes, 'formulario_movimiento_shortcode'));
-    // Otros shortcodes...
-}
-add_action('init', 'GPV_init');
