@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
-class GPV_Direver_Dashboard
+class GPV_Driver_Dashboard
 {
     /**
      * Database instance
@@ -461,4 +461,4 @@ class GPV_Direver_Dashboard
 }
 
 // Inicializar el dashboard del conductor
-$gpv_driver_dashboard = new GPV_Driver_Dashboard();
+// $gpv_driver_dashboard = new GPV_Driver_Dashboard();

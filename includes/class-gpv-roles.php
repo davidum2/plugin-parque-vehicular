@@ -5,6 +5,73 @@
  */
 class GPV_Roles
 {
+    /**
+     * Lista completa de todas las capacidades GPV
+     *
+     * @var array
+     */
+    private $all_gpv_capabilities = array(
+        'gpv_view_dashboard'       => true,
+        'gpv_manage_vehicles'      => true,
+        'gpv_manage_movements'     => true,
+        'gpv_manage_fuel'          => true,
+        'gpv_manage_maintenance'   => true,
+        'gpv_manage_users'         => true,
+        'gpv_generate_reports'     => true,
+        'gpv_manage_settings'      => true,
+        'gpv_edit_records'         => true,
+        'gpv_delete_records'       => true,
+        'gpv_view_vehicles'        => true,
+        'gpv_view_movements'       => true,
+        'gpv_view_fuel'            => true,
+        'gpv_view_maintenance'     => true,
+        'gpv_register_movements'   => true,
+        'gpv_register_fuel'        => true,
+        'gpv_view_own_records'     => true,
+        'gpv_view_assigned_vehicles' => true
+    );
+
+    /**
+     * Capacidades para consultores
+     *
+     * @var array
+     */
+    private $consultant_capabilities = array(
+        'gpv_view_dashboard'       => true,
+        'gpv_view_vehicles'        => true,
+        'gpv_view_movements'       => true,
+        'gpv_view_fuel'            => true,
+        'gpv_view_maintenance'     => true,
+        'gpv_generate_reports'     => true,
+    );
+
+    /**
+     * Capacidades para operarios
+     *
+     * @var array
+     */
+    private $operator_capabilities = array(
+        'gpv_view_assigned_vehicles' => true,
+        'gpv_register_movements'     => true,
+        'gpv_register_fuel'          => true,
+        'gpv_view_own_records'       => true,
+    );
+
+    /**
+     * Lista de shortcodes del plugin
+     *
+     * @var array
+     */
+    private $gpv_shortcodes = [
+        'gpv_dashboard',
+        'gpv_driver_panel',
+        'gpv_consultant_panel',
+        'gpv_form_movimiento',
+        'gpv_form_carga',
+        'gpv_form_vehiculo',
+        'gpv_listado_movimientos',
+        'gpv_driver_dashboard'
+    ];
 
     /**
      * Constructor
@@ -13,6 +80,9 @@ class GPV_Roles
     {
         // Hook para verificar permisos en cada petición
         add_action('init', array($this, 'check_capabilities'));
+
+        // Asegurarnos que el admin de WP siempre tenga todos los permisos
+        add_action('admin_init', array($this, 'ensure_admin_capabilities'));
     }
 
     /**
@@ -20,19 +90,6 @@ class GPV_Roles
      */
     public function add_roles()
     {
-        // Administrador de flota
-        add_role(
-            'gpv_administrator',
-            __('Administrador de Flota', 'gestion-parque-vehicular'),
-            array(
-                'read' => true,
-                'edit_posts' => false,
-                'delete_posts' => false,
-                'publish_posts' => false,
-                'upload_files' => true,
-            )
-        );
-
         // Consultor (gerencia)
         add_role(
             'gpv_consultant',
@@ -59,6 +116,9 @@ class GPV_Roles
             )
         );
 
+        // Eliminar el rol de administrador de flota si existe
+        remove_role('gpv_administrator');
+
         // Agregar capacidades específicas
         $this->add_gpv_capabilities();
     }
@@ -68,67 +128,46 @@ class GPV_Roles
      */
     private function add_gpv_capabilities()
     {
-        $admin_role = get_role('gpv_administrator');
         $consultant_role = get_role('gpv_consultant');
         $operator_role = get_role('gpv_operator');
         $admin_wp = get_role('administrator');
 
-        // Si los roles aún no existen, salir sin error
-        if (!$admin_role || !$consultant_role || !$operator_role) {
-            return;
-        }
-
-        // Capacidades para administradores de flota
-        $admin_capabilities = array(
-            'gpv_view_dashboard'       => true,
-            'gpv_manage_vehicles'      => true,
-            'gpv_manage_movements'     => true,
-            'gpv_manage_fuel'          => true,
-            'gpv_manage_maintenance'   => true,
-            'gpv_manage_users'         => true,
-            'gpv_generate_reports'     => true,
-            'gpv_manage_settings'      => true,
-            'gpv_edit_records'         => true,
-            'gpv_delete_records'       => true,
-        );
-
-        // Capacidades para consultores
-        $consultant_capabilities = array(
-            'gpv_view_dashboard'       => true,
-            'gpv_view_vehicles'        => true,
-            'gpv_view_movements'       => true,
-            'gpv_view_fuel'            => true,
-            'gpv_view_maintenance'     => true,
-            'gpv_generate_reports'     => true,
-        );
-
-        // Capacidades para operarios
-        $operator_capabilities = array(
-            'gpv_view_assigned_vehicles' => true,
-            'gpv_register_movements'     => true,
-            'gpv_register_fuel'          => true,
-            'gpv_view_own_records'       => true,
-        );
-
-        // Asignar capacidades a roles
-        foreach ($admin_capabilities as $cap => $grant) {
-            if ($admin_role) {
-                $admin_role->add_cap($cap, $grant);
-            }
-            if ($admin_wp) {
-                $admin_wp->add_cap($cap, $grant); // También al admin de WP
+        // Asignar TODAS las capacidades al admin de WordPress
+        if ($admin_wp) {
+            foreach ($this->all_gpv_capabilities as $cap => $grant) {
+                $admin_wp->add_cap($cap, $grant);
             }
         }
 
-        foreach ($consultant_capabilities as $cap => $grant) {
-            if ($consultant_role) {
+        // Asignar capacidades específicas a los roles restantes
+        if ($consultant_role) {
+            foreach ($this->consultant_capabilities as $cap => $grant) {
                 $consultant_role->add_cap($cap, $grant);
             }
         }
 
-        foreach ($operator_capabilities as $cap => $grant) {
-            if ($operator_role) {
+        if ($operator_role) {
+            foreach ($this->operator_capabilities as $cap => $grant) {
                 $operator_role->add_cap($cap, $grant);
+            }
+        }
+    }
+
+    /**
+     * Asegurarse de que el administrador de WordPress siempre tenga todos los permisos necesarios
+     */
+    public function ensure_admin_capabilities()
+    {
+        $admin_wp = get_role('administrator');
+
+        if (!$admin_wp) {
+            return;
+        }
+
+        // Asignar todas las capacidades al administrador
+        foreach ($this->all_gpv_capabilities as $cap => $grant) {
+            if (!$admin_wp->has_cap($cap)) {
+                $admin_wp->add_cap($cap, $grant);
             }
         }
     }
@@ -166,6 +205,8 @@ class GPV_Roles
 
     /**
      * Verificar si estamos en una página del plugin
+     *
+     * @return bool True si es una página del plugin, false en caso contrario
      */
     private function is_gpv_page()
     {
@@ -182,30 +223,20 @@ class GPV_Roles
         }
 
         // Comprobar si contiene alguno de nuestros shortcodes
-        $has_gpv_shortcode = false;
-        $gpv_shortcodes = [
-            'gpv_dashboard',
-            'gpv_driver_panel',
-            'gpv_consultant_panel',
-            'gpv_form_movimiento',
-            'gpv_form_carga',
-            'gpv_form_vehiculo',
-            'gpv_listado_movimientos',
-            'gpv_driver_dashboard'  // Nuevo shortcode añadido
-        ];
-
-        foreach ($gpv_shortcodes as $shortcode) {
+        foreach ($this->gpv_shortcodes as $shortcode) {
             if (has_shortcode($post->post_content, $shortcode)) {
-                $has_gpv_shortcode = true;
-                break;
+                return true;
             }
         }
 
-        return $has_gpv_shortcode;
+        return false;
     }
 
     /**
      * Verificar acceso a páginas específicas
+     *
+     * @param string $page Nombre de la página
+     * @param WP_User $user Usuario actual
      */
     private function verify_page_access($page, $user)
     {

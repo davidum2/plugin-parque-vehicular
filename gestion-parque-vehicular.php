@@ -90,7 +90,7 @@ class GPV_Plugin
         require_once GPV_PLUGIN_DIR . 'includes/class-gpv-shortcodes.php';
 
         // Dashboard
-        require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-dashboard.php';
+        require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-driver-dashboard.php';
 
         // Nuevos componentes para dashboard de conductor
         require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-driver-dashboard.php';
@@ -116,7 +116,7 @@ class GPV_Plugin
 
         // Inicializar componentes
         $gpv_roles = new GPV_Roles();
-        $gpv_dashboard = new GPV_Dashboard();
+        $gpv_dashboard = new GPV_Driver_Dashboard();
         $gpv_driver_dashboard = new GPV_Driver_Dashboard();
         $gpv_pwa = new GPV_PWA();
         $gpv_api = new GPV_API();
