@@ -1,0 +1,424 @@
+/**
+ * Estilos para el panel de administración de GPV
+ */
+
+/* Estilos para el menú principal */
+#adminmenu .toplevel_page_gpv_menu .wp-menu-image {
+    color: #82b541;
+  }
+
+  /* Estilo para la página principal */
+  .gpv-admin-page {
+    max-width: 1200px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .gpv-admin-page h2 {
+    border-bottom: 2px solid #82b541;
+    padding-bottom: 10px;
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 20px;
+  }
+
+  .gpv-admin-page .admin-links {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+  }
+
+  .gpv-admin-page .admin-links li {
+    margin-bottom: 12px;
+  }
+
+  .gpv-admin-page .admin-links a {
+    display: block;
+    padding: 12px 15px;
+    background-color: #f5f5f5;
+    border-left: 4px solid #82b541;
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .gpv-admin-page .admin-links a:hover {
+    background-color: #eaeaea;
+    border-left-color: #4285F4;
+    padding-left: 20px;
+  }
+
+  /* Estilos para tablas de listado */
+  .widefat {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border: 1px solid #e5e5e5;
+  }
+
+  .widefat th {
+    background-color: #f9f9f9;
+    color: #32373c;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px;
+    border-bottom: 1px solid #e1e1e1;
+  }
+
+  .widefat td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f1f1;
+  }
+
+  .widefat tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+
+  .widefat tr:hover {
+    background-color: #f5f5f5;
+  }
+
+  /* Estilos para dashboard widgets */
+  .gpv-dashboard-widgets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .gpv-dashboard-widget {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .gpv-dashboard-widget h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 16px;
+    color: #23282d;
+  }
+
+  .gpv-widget-content {
+    margin-top: 15px;
+  }
+
+  .gpv-stat-card {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  .gpv-stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #f1f8e9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+  }
+
+  .gpv-stat-icon span {
+    font-size: 24px;
+    color: #82b541;
+  }
+
+  .gpv-stat-details h4 {
+    margin: 0;
+    font-size: 24px;
+    color: #23282d;
+    line-height: 1.2;
+  }
+
+  .gpv-stat-details p {
+    margin: 0;
+    color: #72777c;
+    font-size: 13px;
+  }
+
+  /* Estilos para formularios en admin */
+  .gpv-admin-form {
+    max-width: 800px;
+    margin: 20px 0;
+  }
+
+  .gpv-admin-form .form-table th {
+    width: 200px;
+    padding: 15px 10px 15px 0;
+  }
+
+  .gpv-admin-form .form-table td {
+    padding: 10px;
+  }
+
+  .gpv-admin-form input[type="text"],
+  .gpv-admin-form input[type="number"],
+  .gpv-admin-form input[type="date"],
+  .gpv-admin-form input[type="datetime-local"],
+  .gpv-admin-form select,
+  .gpv-admin-form textarea {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .gpv-admin-form textarea {
+    min-height: 100px;
+  }
+
+  .gpv-admin-form .button-primary {
+    background: #82b541;
+    border-color: #6f9a37;
+  }
+
+  .gpv-admin-form .button-primary:hover {
+    background: #6f9a37;
+    border-color: #62882f;
+  }
+
+  /* Alertas de mantenimiento */
+  .gpv-alert {
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    border-left: 4px solid #ffba00;
+    background-color: #fff8e5;
+  }
+
+  .gpv-alert.warning {
+    border-left-color: #ffba00;
+    background-color: #fff8e5;
+  }
+
+  .gpv-alert.danger {
+    border-left-color: #dc3232;
+    background-color: #fbeaea;
+  }
+
+  .gpv-alert.success {
+    border-left-color: #46b450;
+    background-color: #ecf7ed;
+  }
+
+  .gpv-alert.info {
+    border-left-color: #00a0d2;
+    background-color: #e5f5fa;
+  }
+
+  .gpv-alert h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+
+  .gpv-alert p {
+    margin: 0;
+  }
+
+  /* Responsividad para móviles */
+  @media screen and (max-width: 782px) {
+    .gpv-dashboard-widgets {
+      grid-template-columns: 1fr;
+    }
+
+    .gpv-admin-form .form-table th {
+      width: 100%;
+      display: block;
+      padding: 10px 0 5px;
+    }
+
+    .gpv-admin-form .form-table td {
+      width: 100%;
+      display: block;
+      padding: 0 0 10px;
+    }
+  }
+
+
+  /**
+ * Estilos adicionales para formularios de vehículos y tablas de listado
+ */
+
+/* Estilos para el formulario de vehículos */
+.gpv-admin-form {
+  max-width: 800px;
+  margin: 20px 0;
+  background: #fff;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -10px;
+  margin-left: -10px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.form-group-half {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
+@media (max-width: 768px) {
+  .form-group-half {
+      flex: 0 0 100%;
+      max-width: 100%;
+  }
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.form-group label .required {
+  color: #dc3232;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="datetime-local"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.07);
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group input[type="datetime-local"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #82b541;
+  box-shadow: 0 0 5px rgba(130, 181, 65, 0.25);
+  outline: none;
+}
+
+/* Estilos para campos con error */
+.error-field {
+  border-color: #dc3232 !important;
+  box-shadow: 0 0 2px rgba(220, 50, 50, 0.8) !important;
+}
+
+.error-message {
+  color: #dc3232;
+  font-size: 12px;
+  display: block;
+  margin-top: 5px;
+}
+
+/* Estilos para las tablas de listado */
+.widefat {
+  border-spacing: 0;
+  width: 100%;
+  clear: both;
+  margin: 20px 0;
+  border: 1px solid #e5e5e5;
+}
+
+.widefat th {
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-bottom: 1px solid #e1e1e1;
+}
+
+.widefat td {
+  padding: 12px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+/* Estados de vehículos */
+.gpv-nivel-bajo {
+  color: #dc3232;
+  font-weight: bold;
+}
+
+.gpv-nivel-medio {
+  color: #ffba00;
+  font-weight: bold;
+}
+
+.gpv-disponible {
+  color: #46b450;
+  font-weight: bold;
+}
+
+.gpv-en-uso {
+  color: #2196F3;
+  font-weight: bold;
+}
+
+.gpv-mantenimiento {
+  color: #ffba00;
+  font-weight: bold;
+}
+
+/* Clases para los mensajes */
+.notice {
+  background: #fff;
+  border-left: 4px solid #dc3232;
+  box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
+  margin: 15px 0;
+  padding: 12px;
+}
+
+.notice.notice-success {
+  border-left-color: #46b450;
+}
+
+.notice.notice-warning {
+  border-left-color: #ffba00;
+}
+
+.notice.notice-error {
+  border-left-color: #dc3232;
+}
+
+.notice.is-dismissible {
+  padding-right: 38px;
+  position: relative;
+}
+
+/* Botones específicos del formulario */
+.gpv-button-primary {
+  background: #82b541;
+  border-color: #6b9634;
+  color: #fff;
+}
+
+.gpv-button-primary:hover {
+  background: #6b9634;
+  border-color: #5a7f2b;
+}
+
+.gpv-button {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}

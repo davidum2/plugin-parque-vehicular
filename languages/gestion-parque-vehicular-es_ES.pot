@@ -1,0 +1,333 @@
+# Translation of Gestion de Parque Vehicular - Tablas Personalizadas to Spanish (Mexico)
+# Copyright (C) 2024 desarrollo digital
+# This file is distributed under the same license as the Gestion de Parque Vehicular - Tablas Personalizadas package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Gestion de Parque Vehicular - Tablas Personalizadas 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-07-04 16:20-0500\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Tu Nombre \n"
+"Language-Team: \n"
+"Language: es_MX\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.2.2\n"
+
+#: gestion-parque-vehicular.php
+msgid "Gestión de Parque Vehicular - Tablas Personalizadas"
+msgstr ""
+
+#: gestion-parque-vehicular.php
+msgid "Plugin para gestionar un parque vehicular usando tablas personalizadas para registrar vehículos, movimientos diarios y cargas de combustible. Permite que cada conductor registre sus movimientos mediante formularios en el front-end."
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "Parque Vehicular"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "Vehículos"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "Movimientos Diarios"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "Cargas de Combustible"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "Bienvenido al panel de administración."
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "- Ver Vehículos"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "- Ver Movimientos Diarios"
+msgstr ""
+
+#: admin/class-gpv-admin.php
+msgid "- Ver Cargas de Combustible"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "ID"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Siglas"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Año"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Nombre"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Odómetro"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Nivel Comb."
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Tipo Comb."
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Medida Odómetro"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Factor Consumo"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Capacidad Tanque"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Ubicación"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "Categoría"
+msgstr ""
+
+#: admin/views/vehiculos-listado.php
+msgid "No hay vehículos registrados."
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Vehículo Siglas"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Vehículo Nombre"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Odómetro Salida"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Hora Salida"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Odómetro Entrada"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Hora Entrada"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Distancia Recorrida"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Combustible Consumido"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "Conductor"
+msgstr ""
+
+#: admin/views/movimientos-listado.php
+msgid "No hay movimientos registrados."
+msgstr ""
+
+#: admin/views/cargas-listado.php
+msgid "Odómetro Carga"
+msgstr ""
+
+#: admin/views/cargas-listado.php
+msgid "Litros Cargados"
+msgstr ""
+
+#: admin/views/cargas-listado.php
+msgid "Precio"
+msgstr ""
+
+#: admin/views/cargas-listado.php
+msgid "Km desde última carga"
+msgstr ""
+
+#: admin/views/cargas-listado.php
+msgid "No hay cargas registradas."
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Registrar Nuevo Vehículo"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Siglas del Vehículo:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Año del Vehículo:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Nombre del Vehículo:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Odómetro Actual:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Nivel de Combustible:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Tipo de Combustible:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Medida del Odómetro:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Factor de Consumo:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Capacidad del Tanque:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Ubicación Actual:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Categoría:"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Registrar Vehículo"
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Error de seguridad."
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Vehículo registrado correctamente."
+msgstr ""
+
+#: frontend/views/form-vehiculo.php
+msgid "Error al registrar el vehículo."
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Registrar Movimiento de Vehículo"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Odómetro de Salida:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Hora de Salida (YYYY-MM-DD HH:MM:SS):"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Odómetro de Entrada:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Hora de Entrada (YYYY-MM-DD HH:MM:SS):"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Distancia Recorrida:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Combustible Consumido:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Nivel de Combustible:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Conductor:"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Registrar Movimiento"
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Movimiento registrado correctamente."
+msgstr ""
+
+#: frontend/views/form-movimiento.php
+msgid "Error al registrar el movimiento."
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Registrar Carga de Combustible"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Odómetro de Carga:"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Litros Cargados:"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Kilómetros desde la última carga:"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Factor de Consumo:"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Registrar Carga"
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Carga registrada correctamente."
+msgstr ""
+
+#: frontend/views/form-carga.php
+msgid "Error al registrar la carga."
+msgstr ""
+
+#: includes/class-gpv-shortcodes.php
+msgid "Error de seguridad."
+msgstr ""
+
+#: includes/class-gpv-shortcodes.php
+msgid "Movimiento registrado correctamente."
+msgstr ""
+
+#: includes/class-gpv-shortcodes.php
+msgid "Error al registrar el movimiento."
+msgstr ""
+
+#: includes/class-gpv-shortcodes.php
+msgid "Carga registrada correctamente."
+msgstr ""
+
+#: includes/class-gpv-shortcodes.php
+msgid "Error al registrar la carga."
+msgstr ""

@@ -1,0 +1,297 @@
+
+/*
+Estilos generales para el plugin de Gestión de Parque Vehicular
+*/
+
+/* Estilos para contenedores */
+.gpv-form-container,
+.gpv-listado-container {
+    width: 90%;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.gpv-form-container h2,
+.gpv-listado-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 24px;
+}
+
+/* Estilos para tablas en el frontend */
+.gpv-table-responsive {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+/* Estilos para filas de formulario */
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -10px;
+    margin-left: -10px;
+}
+
+.form-group-half {
+    flex: 0 0 50%;
+    max-width: 50%;
+    padding-right: 10px;
+    padding-left: 10px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+    .form-group-half {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+/* Estilos para información calculada */
+.info-calculada {
+    background-color: #f0f8ff;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.info-calculada p {
+    margin: 5px 0;
+}
+
+.info-calculada strong {
+    color: #0056b3;
+}
+
+.gpv-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    font-size: 14px;
+}
+
+.gpv-table th,
+.gpv-table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+.gpv-table th {
+    background-color: #4285f4;
+    color: white;
+    font-weight: bold;
+}
+
+.gpv-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.gpv-table tr:hover {
+    background-color: #f1f1f1;
+}
+
+.gpv-table small {
+    color: #666;
+    font-size: 12px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="datetime-local"],
+.form-group select {
+    width: calc(100% - 22px);
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group input[type="datetime-local"]:focus,
+.form-group select:focus {
+    border: 1px solid #4285f4;
+    box-shadow: 0 0 5px rgba(66, 133, 244, 0.5);
+    outline: none;
+}
+
+
+.form-group input[type="submit"] {
+    background-color: #4285f4;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+}
+
+.form-group input[type="submit"]:hover {
+    background-color: #2c5ca6;
+}
+
+.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+/* Estilos para tablas en el admin */
+.widefat {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    background-color: #fff;
+}
+
+.widefat th,
+.widefat td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.widefat th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.widefat tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Estilos para la página principal del plugin en el admin */
+.gpv-admin-page {
+    padding: 20px;
+}
+
+.gpv-admin-page h2 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.gpv-admin-page p {
+    line-height: 1.6;
+}
+
+.gpv-admin-page ul {
+    margin-top: 15px;
+    padding-left: 20px;
+}
+
+.gpv-admin-page li {
+    margin-bottom: 8px;
+}
+
+
+/* Estilos para toggle section */
+.gpv-section-toggle {
+    margin: 20px 0;
+    border: 1px solid #e5e5e5;
+    padding: 5px 15px;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.gpv-section-toggle h3 {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.gpv-section-toggle input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
+.gpv-field-description {
+    color: #666;
+    font-size: 13px;
+    margin-top: 2px;
+}
+
+.gpv-nivel-bajo {
+    color: #dc3232;
+    font-weight: bold;
+}
+
+/* Estilos para información calculada */
+.info-calculada {
+    background-color: #f0f8ff;
+    border: 1px solid #b8daff;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.info-calculada p {
+    margin: 7px 0;
+}
+
+/* Mensajes de éxito y error */
+.success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.notice {
+    color: #856404;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
