@@ -1,8 +1,3 @@
-
-wp-content/plugins/plugin-parque-vehicular/lib/*
-wp-content/plugins/plugin-parque-vehicular/src/*
-
-wp-content/plugins/plugin-parque-vehicular/vendor/
-wp-content/plugins/plugin-parque-vehicular/node_modules/
-wp-content/plugins/plugin-parque-vehicular/.vscode/
-wp-content/plugins/plugin-parque-vehicular/.idea/
+# Carpetas a ignorar
+lib/tcpdf/
+.git.bak/
