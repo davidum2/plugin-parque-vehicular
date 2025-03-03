@@ -102,11 +102,7 @@ class GPV_Driver_Dashboard
                     <?php $this->render_fuel_loads_section($data['fuel_loads']); ?>
                 </section>
 
-                <!-- Upcoming Maintenances Section -->
-                <section class="gpv-dashboard-section gpv-maintenances">
-                    <h2><?php _e('Mantenimientos Próximos', 'gestion-parque-vehicular'); ?></h2>
-                    <?php $this->render_maintenances_section($data['maintenances']); ?>
-                </section>
+
             </div>
         </div>
 
@@ -134,7 +130,7 @@ class GPV_Driver_Dashboard
             'vehicles' => $this->get_assigned_vehicles(),
             'movements' => $this->get_recent_movements(),
             'fuel_loads' => $this->get_recent_fuel_loads(),
-            'maintenances' => $this->get_upcoming_maintenances()
+
         );
     }
 
@@ -189,16 +185,7 @@ class GPV_Driver_Dashboard
      *
      * @return array Upcoming maintenances
      */
-    private function get_upcoming_maintenances()
-    {
-        $args = array(
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d'),
-            'fecha_hasta' => date('Y-m-d', strtotime('+30 days')),
-            'limit' => 5
-        );
-        return $this->database->get_maintenances($args);
-    }
+
 
     /**
      * Render vehicles section
@@ -312,40 +299,7 @@ class GPV_Driver_Dashboard
         echo '</tbody></table>';
     }
 
-    /**
-     * Render maintenances section
-     *
-     * @param array $maintenances Maintenances to render
-     */
-    private function render_maintenances_section($maintenances)
-    {
-        if (empty($maintenances)) {
-            echo '<p>' . __('No hay mantenimientos próximos.', 'gestion-parque-vehicular') . '</p>';
-            return;
-        }
 
-        echo '<table class="gpv-data-table">';
-        echo '<thead><tr>';
-        echo '<th>' . __('Vehículo', 'gestion-parque-vehicular') . '</th>';
-        echo '<th>' . __('Tipo', 'gestion-parque-vehicular') . '</th>';
-        echo '<th>' . __('Fecha', 'gestion-parque-vehicular') . '</th>';
-        echo '<th>' . __('Días Restantes', 'gestion-parque-vehicular') . '</th>';
-        echo '</tr></thead>';
-        echo '<tbody>';
-
-        foreach ($maintenances as $maintenance) {
-            $dias_restantes = round((strtotime($maintenance->fecha_programada) - strtotime(date('Y-m-d'))) / (60 * 60 * 24));
-
-            echo '<tr>';
-            echo '<td>' . esc_html($maintenance->vehiculo_siglas . ' - ' . $maintenance->vehiculo_nombre) . '</td>';
-            echo '<td>' . esc_html($maintenance->tipo) . '</td>';
-            echo '<td>' . esc_html(date_i18n(get_option('date_format'), strtotime($maintenance->fecha_programada))) . '</td>';
-            echo '<td>' . esc_html($dias_restantes) . ' ' . __('días', 'gestion-parque-vehicular') . '</td>';
-            echo '</tr>';
-        }
-
-        echo '</tbody></table>';
-    }
 
     /**
      * Render movement form modal

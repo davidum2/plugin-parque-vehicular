@@ -15,8 +15,8 @@ class GPV_Roles
         'gpv_manage_vehicles'      => true,
         'gpv_manage_movements'     => true,
         'gpv_manage_fuel'          => true,
-        'gpv_manage_maintenance'   => true,
-        'gpv_manage_users'         => true,
+
+
         'gpv_generate_reports'     => true,
         'gpv_manage_settings'      => true,
         'gpv_edit_records'         => true,
@@ -255,9 +255,6 @@ class GPV_Roles
                 break;
             case 'gpv_cargas':
                 $access_denied = !current_user_can('gpv_view_fuel') && !current_user_can('gpv_manage_fuel') && !current_user_can('manage_options');
-                break;
-            case 'gpv_mantenimientos':
-                $access_denied = !current_user_can('gpv_view_maintenance') && !current_user_can('gpv_manage_maintenance') && !current_user_can('manage_options');
                 break;
             case 'gpv_usuarios':
                 $access_denied = !current_user_can('gpv_manage_users') && !current_user_can('manage_options');

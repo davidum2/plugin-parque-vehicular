@@ -96,19 +96,7 @@ class GPV_API
             )
         ));
 
-        // Ruta para mantenimientos
-        register_rest_route($namespace, '/maintenances', array(
-            array(
-                'methods'  => WP_REST_Server::READABLE,
-                'callback' => array($this, 'get_maintenances'),
-                'permission_callback' => array($this, 'check_maintenances_read_permission'),
-            ),
-            array(
-                'methods'  => WP_REST_Server::CREATABLE,
-                'callback' => array($this, 'create_maintenance'),
-                'permission_callback' => array($this, 'check_maintenances_create_permission'),
-            )
-        ));
+
 
         // Ruta para dashboard
         register_rest_route($namespace, '/dashboard', array(
@@ -201,19 +189,7 @@ class GPV_API
             current_user_can('gpv_manage_fuel');
     }
 
-    /**
-     * Verificar permisos para mantenimientos
-     */
-    public function check_maintenances_read_permission()
-    {
-        return current_user_can('gpv_view_maintenance') ||
-            current_user_can('gpv_manage_maintenance');
-    }
 
-    public function check_maintenances_create_permission()
-    {
-        return current_user_can('gpv_manage_maintenance');
-    }
 
     /**
      * Verificar permisos para dashboard
@@ -621,8 +597,6 @@ class GPV_API
                 $response['vehicles']['available']++;
             } elseif ($vehicle->estado === 'en_uso') {
                 $response['vehicles']['in_use']++;
-            } elseif ($vehicle->estado === 'mantenimiento') {
-                $response['vehicles']['maintenance']++;
             }
         }
 
@@ -676,26 +650,6 @@ class GPV_API
                 $response['fuel']['average_consumption'] = $total_km / $total_litros;
             }
         }
-
-        // Mantenimientos pendientes y próximos
-        $pending_maintenance = $database->get_maintenances(array(
-            'estado' => 'programado',
-            'fecha_hasta' => $today
-        ));
-
-        $upcoming_maintenance = $database->get_maintenances(array(
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d', strtotime('+1 day')),
-            'fecha_hasta' => date('Y-m-d', strtotime('+7 days'))
-        ));
-
-        $response['maintenance']['pending'] = count($pending_maintenance);
-        $response['maintenance']['upcoming'] = count($upcoming_maintenance);
-
-        return new WP_REST_Response(array(
-            'status' => 'success',
-            'data' => $response
-        ), 200);
     }
 
     /**

@@ -74,7 +74,7 @@ class GPV_Plugin
         require_once GPV_PLUGIN_DIR . 'includes/models/class-gpv-vehicle.php';
         require_once GPV_PLUGIN_DIR . 'includes/models/class-gpv-movement.php';
         require_once GPV_PLUGIN_DIR . 'includes/models/class-gpv-fuel.php';
-        require_once GPV_PLUGIN_DIR . 'includes/models/class-gpv-maintenance.php';
+
 
         // Frontend
         require_once GPV_PLUGIN_DIR . 'frontend/class-gpv-frontend.php';
@@ -126,25 +126,6 @@ class GPV_Plugin
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
     }
 
-    /**
-     * Registro de Custom Post Types
-     */
-    public function register_post_types()
-    {
-        // Registrar CPT para mantenimientos programados
-        register_post_type('gpv_maintenance', [
-            'labels' => [
-                'name' => __('Mantenimientos', 'gestion-parque-vehicular'),
-                'singular_name' => __('Mantenimiento', 'gestion-parque-vehicular')
-            ],
-            'public' => false,
-            'show_ui' => true,
-            'show_in_menu' => 'gpv_menu',
-            'supports' => ['title', 'editor', 'custom-fields'],
-            'capability_type' => 'post',
-            'map_meta_cap' => true
-        ]);
-    }
 
     /**
      * Enqueue de assets frontend

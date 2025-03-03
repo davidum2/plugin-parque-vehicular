@@ -1,15 +1,17 @@
 <?php
+
 /**
  * Clase para gestionar la base de datos del plugin
  */
-class GPV_Database {
+class GPV_Database
+{
     /**
      * Versión de la base de datos
      *
      * @var string
      */
     private $db_version;
-    
+
     /**
      * Objeto global de WordPress para la base de datos
      *
@@ -20,7 +22,8 @@ class GPV_Database {
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         global $wpdb;
         $this->wpdb = $wpdb;
         $this->db_version = '2.0';
@@ -29,14 +32,15 @@ class GPV_Database {
     /**
      * Instalar tablas del plugin
      */
-    public function install_tables() {
+    public function install_tables()
+    {
         $charset_collate = $this->wpdb->get_charset_collate();
 
         // Nombres de tablas
         $tabla_vehiculos = $this->wpdb->prefix . 'gpv_vehiculos';
         $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
         $tabla_cargas = $this->wpdb->prefix . 'gpv_cargas';
-        $tabla_mantenimientos = $this->wpdb->prefix . 'gpv_mantenimientos';
+
         $tabla_usuarios = $this->wpdb->prefix . 'gpv_usuarios';
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
@@ -110,26 +114,7 @@ class GPV_Database {
             KEY vehiculo_idx (vehiculo_id)
         ) $charset_collate;";
 
-        // Tabla Mantenimientos (nueva)
-        $sql .= "CREATE TABLE $tabla_mantenimientos (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            vehiculo_id mediumint(9) NOT NULL,
-            tipo varchar(50) NOT NULL,
-            fecha_programada date NOT NULL,
-            fecha_realizada date DEFAULT NULL,
-            odometro float DEFAULT NULL,
-            descripcion text NOT NULL,
-            costo float DEFAULT NULL,
-            proveedor varchar(100) DEFAULT NULL,
-            estado varchar(20) DEFAULT 'programado',
-            comprobante_id int(11) DEFAULT NULL,
-            notas longtext DEFAULT NULL,
-            creado_por int(11) NOT NULL,
-            creado_en datetime DEFAULT CURRENT_TIMESTAMP,
-            modificado_en datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY vehiculo_idx (vehiculo_id)
-        ) $charset_collate;";
+
 
         // Tabla Usuarios (nueva)
         $sql .= "CREATE TABLE $tabla_usuarios (
@@ -171,12 +156,12 @@ class GPV_Database {
     /**
      * Eliminar tablas del plugin
      */
-    public function uninstall_tables() {
+    public function uninstall_tables()
+    {
         $tablas = [
             $this->wpdb->prefix . 'gpv_vehiculos',
             $this->wpdb->prefix . 'gpv_movimientos',
             $this->wpdb->prefix . 'gpv_cargas',
-            $this->wpdb->prefix . 'gpv_mantenimientos',
             $this->wpdb->prefix . 'gpv_usuarios',
             $this->wpdb->prefix . 'gpv_configuracion'
         ];
@@ -184,7 +169,7 @@ class GPV_Database {
         foreach ($tablas as $tabla) {
             $this->wpdb->query("DROP TABLE IF EXISTS $tabla");
         }
-        
+
         // Eliminar opciones
         delete_option('gpv_db_version');
     }
@@ -192,7 +177,8 @@ class GPV_Database {
     /**
      * Insertar configuración por defecto
      */
-    private function insert_default_settings() {
+    private function insert_default_settings()
+    {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
         // Comprobar si ya hay configuración
@@ -201,11 +187,7 @@ class GPV_Database {
         if (!$exists) {
             // Configuraciones por defecto
             $default_settings = [
-                [
-                    'clave' => 'alerta_mantenimiento_dias',
-                    'valor' => '7',
-                    'descripcion' => 'Días de antelación para alertar sobre mantenimientos programados'
-                ],
+
                 [
                     'clave' => 'calcular_consumo_automatico',
                     'valor' => '1',
@@ -241,11 +223,12 @@ class GPV_Database {
 
     /**
      * Obtener configuración por clave
-     * 
+     *
      * @param string $key Clave de la configuración
      * @return string|null Valor de la configuración o null si no existe
      */
-    public function get_setting($key) {
+    public function get_setting($key)
+    {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
         $result = $this->wpdb->get_row(
@@ -260,12 +243,13 @@ class GPV_Database {
 
     /**
      * Actualizar configuración
-     * 
+     *
      * @param string $key Clave de la configuración
      * @param string $value Nuevo valor
      * @return int|false Número de filas actualizadas o false en caso de error
      */
-    public function update_setting($key, $value) {
+    public function update_setting($key, $value)
+    {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
         return $this->wpdb->update(
@@ -281,11 +265,12 @@ class GPV_Database {
 
     /**
      * Obtener listado de vehículos con filtros opcionales
-     * 
+     *
      * @param array $args Argumentos para filtrar
      * @return array Listado de vehículos
      */
-    public function get_vehicles($args = []) {
+    public function get_vehicles($args = [])
+    {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
         $query = "SELECT * FROM $tabla";
@@ -305,7 +290,7 @@ class GPV_Database {
             if (isset($args['siglas'])) {
                 $query .= $this->wpdb->prepare(" AND siglas LIKE %s", '%' . $this->wpdb->esc_like($args['siglas']) . '%');
             }
-            
+
             if (isset($args['categoria'])) {
                 $query .= $this->wpdb->prepare(" AND categoria = %s", $args['categoria']);
             }
@@ -319,11 +304,11 @@ class GPV_Database {
         } else {
             $query .= " ORDER BY nombre_vehiculo ASC";
         }
-        
+
         // Límite
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-            
+
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
@@ -334,11 +319,12 @@ class GPV_Database {
 
     /**
      * Obtener un vehículo por ID
-     * 
+     *
      * @param int $id ID del vehículo
      * @return object|null Objeto con los datos del vehículo o null si no existe
      */
-    public function get_vehicle($id) {
+    public function get_vehicle($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
         return $this->wpdb->get_row(
@@ -351,18 +337,19 @@ class GPV_Database {
 
     /**
      * Insertar un nuevo vehículo
-     * 
+     *
      * @param array $data Datos del vehículo
      * @return int|false ID del vehículo insertado o false en caso de error
      */
-    public function insert_vehicle($data) {
+    public function insert_vehicle($data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
         // Asegurar que los campos obligatorios estén presentes
         if (empty($data['siglas']) || empty($data['nombre_vehiculo'])) {
             return false;
         }
-        
+
         // Establecer valores por defecto si no están presentes
         $defaults = [
             'anio' => date('Y'),
@@ -377,11 +364,11 @@ class GPV_Database {
             'estado' => 'disponible',
             'ultima_actualizacion' => current_time('mysql')
         ];
-        
+
         $data = wp_parse_args($data, $defaults);
 
         $result = $this->wpdb->insert($tabla, $data);
-        
+
         if ($result) {
             do_action('gpv_after_vehicle_insert', $this->wpdb->insert_id, $data);
             return $this->wpdb->insert_id;
@@ -392,24 +379,25 @@ class GPV_Database {
 
     /**
      * Actualizar un vehículo
-     * 
+     *
      * @param int $id ID del vehículo
      * @param array $data Datos a actualizar
      * @return int|false Número de filas actualizadas o false en caso de error
      */
-    public function update_vehicle($id, $data) {
+    public function update_vehicle($id, $data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
-        
+
         // Asegurar que el ID sea válido
         if (!$id || !is_numeric($id)) {
             return false;
         }
-        
+
         // Si no hay datos para actualizar
         if (empty($data)) {
             return false;
         }
-        
+
         // Actualizar fecha de modificación si no se ha establecido
         if (!isset($data['ultima_actualizacion'])) {
             $data['ultima_actualizacion'] = current_time('mysql');
@@ -420,31 +408,32 @@ class GPV_Database {
             $data,
             ['id' => $id]
         );
-        
+
         if ($result !== false) {
             do_action('gpv_after_vehicle_update', $id, $data);
         }
 
         return $result;
     }
-    
+
     /**
      * Eliminar un vehículo
-     * 
+     *
      * @param int $id ID del vehículo
      * @return int|false Número de filas eliminadas o false en caso de error
      */
-    public function delete_vehicle($id) {
+    public function delete_vehicle($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
-        
+
         // Verificar si el vehículo existe
         $vehicle = $this->get_vehicle($id);
         if (!$vehicle) {
             return false;
         }
-        
+
         do_action('gpv_before_vehicle_delete', $id, $vehicle);
-        
+
         return $this->wpdb->delete(
             $tabla,
             ['id' => $id],
@@ -458,11 +447,12 @@ class GPV_Database {
 
     /**
      * Obtener listado de movimientos con filtros opcionales
-     * 
+     *
      * @param array $args Argumentos para filtrar
      * @return array Listado de movimientos
      */
-    public function get_movements($args = []) {
+    public function get_movements($args = [])
+    {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
         $query = "SELECT * FROM $tabla";
@@ -490,12 +480,15 @@ class GPV_Database {
             if (isset($args['fecha_hasta'])) {
                 $query .= $this->wpdb->prepare(" AND hora_salida <= %s", $args['fecha_hasta']);
             }
-            
+
             if (isset($args['search'])) {
                 $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
                 $query .= $this->wpdb->prepare(
                     " AND (vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR conductor LIKE %s OR proposito LIKE %s)",
-                    $search, $search, $search, $search
+                    $search,
+                    $search,
+                    $search,
+                    $search
                 );
             }
         }
@@ -512,7 +505,7 @@ class GPV_Database {
         // Límite
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-            
+
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
@@ -523,11 +516,12 @@ class GPV_Database {
 
     /**
      * Obtener un movimiento por ID
-     * 
+     *
      * @param int $id ID del movimiento
      * @return object|null Objeto con los datos del movimiento o null si no existe
      */
-    public function get_movement($id) {
+    public function get_movement($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
         return $this->wpdb->get_row(
@@ -540,23 +534,24 @@ class GPV_Database {
 
     /**
      * Insertar un nuevo movimiento
-     * 
+     *
      * @param array $data Datos del movimiento
      * @return int|false ID del movimiento insertado o false en caso de error
      */
-    public function insert_movement($data) {
+    public function insert_movement($data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
         // Asegurar que los campos obligatorios estén presentes
         if (empty($data['vehiculo_id']) || empty($data['odometro_salida']) || empty($data['hora_salida'])) {
             return false;
         }
-        
+
         // Establecer valores por defecto
         if (!isset($data['estado'])) {
             $data['estado'] = 'en_progreso';
         }
-        
+
         if (!isset($data['creado_en'])) {
             $data['creado_en'] = current_time('mysql');
         }
@@ -565,14 +560,14 @@ class GPV_Database {
 
         if ($result) {
             $movement_id = $this->wpdb->insert_id;
-            
+
             // Actualizar odómetro y estado del vehículo
             $this->update_vehicle($data['vehiculo_id'], [
                 'odometro_actual' => $data['odometro_salida'],
                 'estado' => 'en_uso',
                 'ultima_actualizacion' => current_time('mysql')
             ]);
-            
+
             do_action('gpv_after_movement_insert', $movement_id, $data);
 
             return $movement_id;
@@ -583,14 +578,15 @@ class GPV_Database {
 
     /**
      * Actualizar un movimiento
-     * 
+     *
      * @param int $id ID del movimiento
      * @param array $data Datos a actualizar
      * @return int|false Número de filas actualizadas o false en caso de error
      */
-    public function update_movement($id, $data) {
+    public function update_movement($id, $data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
-        
+
         // Obtener movimiento actual para verificar cambios
         $current_movement = $this->get_movement($id);
         if (!$current_movement) {
@@ -618,45 +614,46 @@ class GPV_Database {
                         ['id' => $id]
                     );
                 }
-                
+
                 // Actualizar odómetro y estado del vehículo al finalizar
                 $vehicle_updates = [
                     'odometro_actual' => $data['odometro_entrada'],
                     'estado' => 'disponible',
                     'ultima_actualizacion' => current_time('mysql')
                 ];
-                
+
                 // Si hay nivel de combustible, actualizarlo también
                 if (isset($data['nivel_combustible'])) {
                     $vehicle_updates['nivel_combustible'] = $data['nivel_combustible'];
                 }
-                
+
                 $this->update_vehicle($current_movement->vehiculo_id, $vehicle_updates);
             }
-            
+
             do_action('gpv_after_movement_update', $id, $data, $current_movement);
         }
 
         return $result;
     }
-    
+
     /**
      * Eliminar un movimiento
-     * 
+     *
      * @param int $id ID del movimiento
      * @return int|false Número de filas eliminadas o false en caso de error
      */
-    public function delete_movement($id) {
+    public function delete_movement($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
-        
+
         // Verificar si el movimiento existe
         $movement = $this->get_movement($id);
         if (!$movement) {
             return false;
         }
-        
+
         do_action('gpv_before_movement_delete', $id, $movement);
-        
+
         return $this->wpdb->delete(
             $tabla,
             ['id' => $id],
@@ -670,11 +667,12 @@ class GPV_Database {
 
     /**
      * Obtener listado de cargas de combustible con filtros opcionales
-     * 
+     *
      * @param array $args Argumentos para filtrar
      * @return array Listado de cargas
      */
-    public function get_fuels($args = []) {
+    public function get_fuels($args = [])
+    {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
         $query = "SELECT * FROM $tabla";
@@ -698,16 +696,19 @@ class GPV_Database {
             if (isset($args['fecha_hasta'])) {
                 $query .= $this->wpdb->prepare(" AND fecha_carga <= %s", $args['fecha_hasta']);
             }
-            
+
             if (isset($args['estacion_servicio'])) {
                 $query .= $this->wpdb->prepare(" AND estacion_servicio = %s", $args['estacion_servicio']);
             }
-            
+
             if (isset($args['search'])) {
                 $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
                 $query .= $this->wpdb->prepare(
                     " AND (vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR estacion_servicio LIKE %s OR numero_factura LIKE %s)",
-                    $search, $search, $search, $search
+                    $search,
+                    $search,
+                    $search,
+                    $search
                 );
             }
         }
@@ -720,11 +721,11 @@ class GPV_Database {
         } else {
             $query .= " ORDER BY fecha_carga DESC";
         }
-        
+
         // Límite
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-            
+
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
@@ -735,11 +736,12 @@ class GPV_Database {
 
     /**
      * Obtener una carga de combustible por ID
-     * 
+     *
      * @param int $id ID de la carga
      * @return object|null Objeto con los datos de la carga o null si no existe
      */
-    public function get_fuel($id) {
+    public function get_fuel($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
         return $this->wpdb->get_row(
@@ -752,23 +754,24 @@ class GPV_Database {
 
     /**
      * Insertar una nueva carga de combustible
-     * 
+     *
      * @param array $data Datos de la carga
      * @return int|false ID de la carga insertada o false en caso de error
      */
-    public function insert_fuel($data) {
+    public function insert_fuel($data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
         // Asegurar que los campos obligatorios estén presentes
         if (empty($data['vehiculo_id']) || empty($data['odometro_carga']) || empty($data['litros_cargados'])) {
             return false;
         }
-        
+
         // Establecer valores por defecto
         if (!isset($data['fecha_carga'])) {
             $data['fecha_carga'] = current_time('mysql');
         }
-        
+
         if (!isset($data['registrado_en'])) {
             $data['registrado_en'] = current_time('mysql');
         }
@@ -777,7 +780,7 @@ class GPV_Database {
 
         if ($result) {
             $fuel_id = $this->wpdb->insert_id;
-            
+
             // Actualizar odómetro y nivel de combustible del vehículo
             $vehiculo = $this->get_vehicle($data['vehiculo_id']);
 
@@ -791,7 +794,7 @@ class GPV_Database {
                     'ultima_actualizacion' => current_time('mysql')
                 ]);
             }
-            
+
             do_action('gpv_after_fuel_insert', $fuel_id, $data);
 
             return $fuel_id;
@@ -799,17 +802,18 @@ class GPV_Database {
 
         return false;
     }
-    
+
     /**
      * Actualizar una carga de combustible
-     * 
+     *
      * @param int $id ID de la carga
      * @param array $data Datos a actualizar
      * @return int|false Número de filas actualizadas o false en caso de error
      */
-    public function update_fuel($id, $data) {
+    public function update_fuel($id, $data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
-        
+
         // Obtener carga actual para verificar cambios
         $current_fuel = $this->get_fuel($id);
         if (!$current_fuel) {
@@ -826,44 +830,45 @@ class GPV_Database {
             // Si cambiaron los litros cargados, actualizar el nivel de combustible del vehículo
             if (isset($data['litros_cargados']) && $data['litros_cargados'] != $current_fuel->litros_cargados) {
                 $vehiculo = $this->get_vehicle($current_fuel->vehiculo_id);
-                
+
                 if ($vehiculo) {
                     // Restar el valor anterior
                     $nivel_previo = $vehiculo->nivel_combustible - ($current_fuel->litros_cargados / $vehiculo->capacidad_tanque * 100);
-                    
+
                     // Sumar el nuevo valor
                     $nuevo_nivel = min(100, $nivel_previo + ($data['litros_cargados'] / $vehiculo->capacidad_tanque * 100));
-                    
+
                     $this->update_vehicle($current_fuel->vehiculo_id, [
                         'nivel_combustible' => $nuevo_nivel,
                         'ultima_actualizacion' => current_time('mysql')
                     ]);
                 }
             }
-            
+
             do_action('gpv_after_fuel_update', $id, $data, $current_fuel);
         }
 
         return $result;
     }
-    
+
     /**
      * Eliminar una carga de combustible
-     * 
+     *
      * @param int $id ID de la carga
      * @return int|false Número de filas eliminadas o false en caso de error
      */
-    public function delete_fuel($id) {
+    public function delete_fuel($id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
-        
+
         // Verificar si la carga existe
         $fuel = $this->get_fuel($id);
         if (!$fuel) {
             return false;
         }
-        
+
         do_action('gpv_before_fuel_delete', $id, $fuel);
-        
+
         return $this->wpdb->delete(
             $tabla,
             ['id' => $id],
@@ -871,231 +876,22 @@ class GPV_Database {
         );
     }
 
-    /**********************
-     * MÉTODOS DE MANTENIMIENTOS
-     **********************/
 
-    /**
-     * Obtener listado de mantenimientos con filtros opcionales
-     * 
-     * @param array $args Argumentos para filtrar
-     * @return array Listado de mantenimientos
-     */
-    public function get_maintenances($args = []) {
-        $tabla = $this->wpdb->prefix . 'gpv_mantenimientos';
 
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
-        if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
-            if (isset($args['vehiculo_id'])) {
-                $query .= $this->wpdb->prepare(" AND vehiculo_id = %d", $args['vehiculo_id']);
-            }
-
-            if (isset($args['estado'])) {
-                $query .= $this->wpdb->prepare(" AND estado = %s", $args['estado']);
-            }
-
-            if (isset($args['tipo'])) {
-                $query .= $this->wpdb->prepare(" AND tipo = %s", $args['tipo']);
-            }
-
-            if (isset($args['fecha_desde'])) {
-                $query .= $this->wpdb->prepare(" AND fecha_programada >= %s", $args['fecha_desde']);
-            }
-
-            if (isset($args['fecha_hasta'])) {
-                $query .= $this->wpdb->prepare(" AND fecha_programada <= %s", $args['fecha_hasta']);
-            }
-            
-            if (isset($args['creado_por'])) {
-                $query .= $this->wpdb->prepare(" AND creado_por = %d", $args['creado_por']);
-            }
-            
-            if (isset($args['search'])) {
-                $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
-                $query .= $this->wpdb->prepare(
-                    " AND (tipo LIKE %s OR descripcion LIKE %s OR proveedor LIKE %s)",
-                    $search, $search, $search
-                );
-            }
-        }
-
-        // Ordenación
-        if (isset($args['orderby'])) {
-            $orderby = sanitize_sql_orderby($args['orderby']);
-            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY $orderby $order";
-        } else {
-            $query .= " ORDER BY fecha_programada ASC";
-        }
-        
-        // Límite
-        if (isset($args['limit']) && is_numeric($args['limit'])) {
-            $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-            
-            if (isset($args['offset']) && is_numeric($args['offset'])) {
-                $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
-            }
-        }
-
-        return $this->wpdb->get_results($query);
-    }
-
-    /**
-     * Obtener un mantenimiento por ID
-     * 
-     * @param int $id ID del mantenimiento
-     * @return object|null Objeto con los datos del mantenimiento o null si no existe
-     */
-    public function get_maintenance($id) {
-        $tabla = $this->wpdb->prefix . 'gpv_mantenimientos';
-
-        return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE id = %d",
-                $id
-            )
-        );
-    }
-
-    /**
-     * Insertar un nuevo mantenimiento
-     * 
-     * @param array $data Datos del mantenimiento
-     * @return int|false ID del mantenimiento insertado o false en caso de error
-     */
-    public function insert_maintenance($data) {
-        $tabla = $this->wpdb->prefix . 'gpv_mantenimientos';
-
-        // Asegurar que los campos obligatorios estén presentes
-        if (empty($data['vehiculo_id']) || empty($data['tipo']) || empty($data['fecha_programada']) || empty($data['descripcion'])) {
-            return false;
-        }
-        
-        // Establecer valores por defecto
-        if (!isset($data['estado'])) {
-            $data['estado'] = 'programado';
-        }
-        
-        if (!isset($data['creado_por'])) {
-            $data['creado_por'] = get_current_user_id();
-        }
-        
-        if (!isset($data['creado_en'])) {
-            $data['creado_en'] = current_time('mysql');
-        }
-
-        $result = $this->wpdb->insert($tabla, $data);
-
-        if ($result) {
-            $maintenance_id = $this->wpdb->insert_id;
-            
-            // Si es un mantenimiento programado para hoy o antes, actualizar el estado del vehículo
-            if ($data['estado'] === 'programado' && strtotime($data['fecha_programada']) <= strtotime('today')) {
-                $this->update_vehicle($data['vehiculo_id'], [
-                    'estado' => 'mantenimiento',
-                    'ultima_actualizacion' => current_time('mysql')
-                ]);
-            }
-            
-            do_action('gpv_after_maintenance_insert', $maintenance_id, $data);
-
-            return $maintenance_id;
-        }
-
-        return false;
-    }
-
-    /**
-     * Actualizar un mantenimiento
-     * 
-     * @param int $id ID del mantenimiento
-     * @param array $data Datos a actualizar
-     * @return int|false Número de filas actualizadas o false en caso de error
-     */
-    public function update_maintenance($id, $data) {
-        $tabla = $this->wpdb->prefix . 'gpv_mantenimientos';
-        
-        // Obtener mantenimiento actual para verificar cambios
-        $current_maintenance = $this->get_maintenance($id);
-        if (!$current_maintenance) {
-            return false;
-        }
-        
-        // Establecer fecha de modificación
-        $data['modificado_en'] = current_time('mysql');
-
-        $result = $this->wpdb->update(
-            $tabla,
-            $data,
-            ['id' => $id]
-        );
-
-        if ($result !== false) {
-            // Si se cambió el estado a 'completado', actualizar el vehículo
-            if (isset($data['estado']) && $data['estado'] === 'completado' && $current_maintenance->estado !== 'completado') {
-                // Establecer fecha realizada si no se proporcionó
-                if (!isset($data['fecha_realizada'])) {
-                    $this->wpdb->update(
-                        $tabla,
-                        ['fecha_realizada' => current_time('Y-m-d')],
-                        ['id' => $id]
-                    );
-                }
-                
-                // Cambiar estado del vehículo a disponible
-                $this->update_vehicle($current_maintenance->vehiculo_id, [
-                    'estado' => 'disponible',
-                    'ultima_actualizacion' => current_time('mysql')
-                ]);
-            }
-            
-            do_action('gpv_after_maintenance_update', $id, $data, $current_maintenance);
-        }
-
-        return $result;
-    }
-    
-    /**
-     * Eliminar un mantenimiento
-     * 
-     * @param int $id ID del mantenimiento
-     * @return int|false Número de filas eliminadas o false en caso de error
-     */
-    public function delete_maintenance($id) {
-        $tabla = $this->wpdb->prefix . 'gpv_mantenimientos';
-        
-        // Verificar si el mantenimiento existe
-        $maintenance = $this->get_maintenance($id);
-        if (!$maintenance) {
-            return false;
-        }
-        
-        do_action('gpv_before_maintenance_delete', $id, $maintenance);
-        
-        return $this->wpdb->delete(
-            $tabla,
-            ['id' => $id],
-            ['%d']
-        );
-    }
-    
     /**********************
      * MÉTODOS DE USUARIO
      **********************/
-    
+
     /**
      * Obtener datos de usuario GPV por ID de usuario WordPress
-     * 
+     *
      * @param int $wp_user_id ID del usuario en WordPress
      * @return object|null Datos del usuario GPV o null si no existe
      */
-    public function get_user_data($wp_user_id) {
+    public function get_user_data($wp_user_id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-        
+
         return $this->wpdb->get_row(
             $this->wpdb->prepare(
                 "SELECT * FROM $tabla WHERE wp_user_id = %d",
@@ -1103,20 +899,21 @@ class GPV_Database {
             )
         );
     }
-    
+
     /**
      * Insertar o actualizar datos de usuario GPV
-     * 
+     *
      * @param int $wp_user_id ID del usuario en WordPress
      * @param array $data Datos del usuario GPV
      * @return int|false ID del registro insertado/actualizado o false en caso de error
      */
-    public function update_user_data($wp_user_id, $data) {
+    public function update_user_data($wp_user_id, $data)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-        
+
         // Verificar si el usuario existe
         $user_exists = $this->get_user_data($wp_user_id);
-        
+
         if ($user_exists) {
             // Actualizar
             $result = $this->wpdb->update(
@@ -1124,35 +921,36 @@ class GPV_Database {
                 $data,
                 ['wp_user_id' => $wp_user_id]
             );
-            
+
             return ($result !== false) ? $user_exists->id : false;
         } else {
             // Insertar
             $data['wp_user_id'] = $wp_user_id;
             $result = $this->wpdb->insert($tabla, $data);
-            
+
             return ($result) ? $this->wpdb->insert_id : false;
         }
     }
-    
+
     /**
      * Actualizar última actividad de usuario
-     * 
+     *
      * @param int $wp_user_id ID del usuario en WordPress
      * @return bool Éxito de la operación
      */
-    public function update_user_activity($wp_user_id) {
+    public function update_user_activity($wp_user_id)
+    {
         $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-        
+
         $user_exists = $this->get_user_data($wp_user_id);
-        
+
         if ($user_exists) {
             $result = $this->wpdb->update(
                 $tabla,
                 ['ultima_actividad' => current_time('mysql')],
                 ['wp_user_id' => $wp_user_id]
             );
-            
+
             return $result !== false;
         } else {
             $result = $this->wpdb->insert(
@@ -1162,26 +960,27 @@ class GPV_Database {
                     'ultima_actividad' => current_time('mysql')
                 ]
             );
-            
+
             return $result !== false;
         }
     }
-    
+
     /**********************
      * MÉTODOS ESTADÍSTICOS
      **********************/
-    
+
     /**
      * Obtener estadísticas generales para el dashboard
-     * 
+     *
      * @return array Estadísticas generales
      */
-    public function get_dashboard_stats() {
+    public function get_dashboard_stats()
+    {
         // Fechas para filtros
         $today = date('Y-m-d');
         $month_start = date('Y-m-01');
         $year_start = date('Y-01-01');
-        
+
         // Estadísticas de vehículos
         $vehicles_stats = [
             'total' => 0,
@@ -1189,10 +988,10 @@ class GPV_Database {
             'in_use' => 0,
             'maintenance' => 0
         ];
-        
+
         $vehicles = $this->get_vehicles();
         $vehicles_stats['total'] = count($vehicles);
-        
+
         foreach ($vehicles as $vehicle) {
             switch ($vehicle->estado) {
                 case 'disponible':
@@ -1206,113 +1005,85 @@ class GPV_Database {
                     break;
             }
         }
-        
+
         // Estadísticas de movimientos
         $movements_today = $this->get_movements([
             'fecha_desde' => $today . ' 00:00:00',
             'fecha_hasta' => $today . ' 23:59:59'
         ]);
-        
+
         $movements_month = $this->get_movements([
             'fecha_desde' => $month_start . ' 00:00:00',
             'fecha_hasta' => $today . ' 23:59:59'
         ]);
-        
+
         $total_distance = 0;
         foreach ($movements_month as $movement) {
             $total_distance += (float)$movement->distancia_recorrida;
         }
-        
+
         $active_movements = $this->get_movements([
             'estado' => 'en_progreso'
         ]);
-        
+
         $movements_stats = [
             'today' => count($movements_today),
             'month' => count($movements_month),
             'total_distance' => $total_distance,
             'active' => count($active_movements)
         ];
-        
+
         // Estadísticas de combustible
         $fuels_month = $this->get_fuels([
             'fecha_desde' => $month_start,
             'fecha_hasta' => $today
         ]);
-        
+
         $month_consumption = 0;
         $month_cost = 0;
         foreach ($fuels_month as $fuel) {
             $month_consumption += (float)$fuel->litros_cargados;
             $month_cost += (float)$fuel->litros_cargados * (float)$fuel->precio;
         }
-        
-        $average_consumption = ($total_distance > 0 && $month_consumption > 0) ? 
-                                $total_distance / $month_consumption : 0;
-        
+
+        $average_consumption = ($total_distance > 0 && $month_consumption > 0) ?
+            $total_distance / $month_consumption : 0;
+
         $fuel_stats = [
             'month_consumption' => $month_consumption,
             'month_cost' => $month_cost,
             'average_consumption' => $average_consumption
         ];
-        
-        // Estadísticas de mantenimiento
-        $pending_maintenance = $this->get_maintenances([
-            'estado' => 'programado',
-            'fecha_hasta' => $today
-        ]);
-        
-        $upcoming_maintenance = $this->get_maintenances([
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d', strtotime('+1 day')),
-            'fecha_hasta' => date('Y-m-d', strtotime('+7 days'))
-        ]);
-        
-        $completed_maintenance = $this->get_maintenances([
-            'estado' => 'completado',
-            'fecha_desde' => $month_start,
-            'fecha_hasta' => $today
-        ]);
-        
-        $maintenance_cost = 0;
-        foreach ($completed_maintenance as $maint) {
-            $maintenance_cost += (float)$maint->costo;
-        }
-        
-        $maintenance_stats = [
-            'pending' => count($pending_maintenance),
-            'upcoming' => count($upcoming_maintenance),
-            'completed' => count($completed_maintenance),
-            'month_cost' => $maintenance_cost
-        ];
-        
+
+
+
         // Obtener movimientos recientes para el dashboard
         $recent_movements = $this->get_movements([
             'limit' => 5,
             'orderby' => 'creado_en',
             'order' => 'DESC'
         ]);
-        
+
         return [
             'vehicles' => $vehicles_stats,
             'movements' => $movements_stats,
             'fuel' => $fuel_stats,
-            'maintenance' => $maintenance_stats,
             'recentMovements' => $recent_movements,
             'last_update' => current_time('mysql')
         ];
     }
-    
+
     /**
      * Obtener estadísticas de uso de vehículos
-     * 
+     *
      * @param string $period Periodo (month, year, all)
      * @return array Estadísticas de uso
      */
-    public function get_vehicle_usage_stats($period = 'month') {
+    public function get_vehicle_usage_stats($period = 'month')
+    {
         // Determinar fechas según periodo
         $today = date('Y-m-d');
-        
+
         switch ($period) {
             case 'month':
                 $start_date = date('Y-m-01');
@@ -1325,10 +1096,10 @@ class GPV_Database {
                 $start_date = '1970-01-01';
                 break;
         }
-        
+
         $vehicles = $this->get_vehicles();
         $stats = [];
-        
+
         foreach ($vehicles as $vehicle) {
             // Obtener movimientos para este vehículo en el periodo
             $movements = $this->get_movements([
@@ -1336,20 +1107,20 @@ class GPV_Database {
                 'fecha_desde' => $start_date . ' 00:00:00',
                 'fecha_hasta' => $today . ' 23:59:59'
             ]);
-            
+
             // Calcular distancia total, tiempo de uso y combustible
             $total_distance = 0;
             $total_fuel = 0;
             $total_usage_hours = 0;
-            
+
             foreach ($movements as $movement) {
                 if ($movement->estado === 'completado' && !empty($movement->distancia_recorrida)) {
                     $total_distance += (float)$movement->distancia_recorrida;
-                    
+
                     if (!empty($movement->combustible_consumido)) {
                         $total_fuel += (float)$movement->combustible_consumido;
                     }
-                    
+
                     // Calcular horas de uso si hay hora de entrada y salida
                     if (!empty($movement->hora_entrada) && !empty($movement->hora_salida)) {
                         $entrada = new DateTime($movement->hora_entrada);
@@ -1360,38 +1131,28 @@ class GPV_Database {
                     }
                 }
             }
-            
+
             // Calcular consumo promedio
-            $avg_consumption = ($total_distance > 0 && $total_fuel > 0) ? 
-                               $total_distance / $total_fuel : 0;
-            
+            $avg_consumption = ($total_distance > 0 && $total_fuel > 0) ?
+                $total_distance / $total_fuel : 0;
+
             // Obtener cargas de combustible
             $fuels = $this->get_fuels([
                 'vehiculo_id' => $vehicle->id,
                 'fecha_desde' => $start_date,
                 'fecha_hasta' => $today
             ]);
-            
+
             $total_recharges = count($fuels);
             $total_cost = 0;
-            
+
             foreach ($fuels as $fuel) {
                 $total_cost += (float)$fuel->litros_cargados * (float)$fuel->precio;
             }
-            
-            // Obtener mantenimientos
-            $maintenances = $this->get_maintenances([
-                'vehiculo_id' => $vehicle->id,
-                'estado' => 'completado',
-                'fecha_desde' => $start_date,
-                'fecha_hasta' => $today
-            ]);
-            
-            $total_maintenance_cost = 0;
-            foreach ($maintenances as $maint) {
-                $total_maintenance_cost += (float)$maint->costo;
-            }
-            
+
+
+
+
             // Guardar estadísticas
             $stats[$vehicle->id] = [
                 'id' => $vehicle->id,
@@ -1404,13 +1165,12 @@ class GPV_Database {
                 'avg_consumption' => $avg_consumption,
                 'total_recharges' => $total_recharges,
                 'total_fuel_cost' => $total_cost,
-                'total_maintenance_cost' => $total_maintenance_cost,
-                'total_cost' => $total_cost + $total_maintenance_cost,
-                'cost_per_km' => ($total_distance > 0) ? 
-                                 ($total_cost + $total_maintenance_cost) / $total_distance : 0
+
+                'cost_per_km' => ($total_distance > 0) ?
+                    $total_cost / $total_distance : 0
             ];
         }
-        
+
         return $stats;
     }
 }
