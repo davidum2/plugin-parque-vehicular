@@ -113,11 +113,11 @@ class GPV_Admin
 
         add_submenu_page(
             'gpv_menu', // Slug del menú padre
-            __('Hello World PDF', 'gestion-parque-vehicular'), // Título del submenú
-            __('Hello World PDF', 'gestion-parque-vehicular'), // Título a mostrar
+            __('Reportes de Movimientos', 'gestion-parque-vehicular'), // Título
+            __('Reportes', 'gestion-parque-vehicular'), // Título a mostrar
             'manage_options', // Capacidad necesaria
-            'gpv_hello_world', // Slug del submenú
-            array($this, 'gpv_pagina_hello_world') // Función para mostrar la página
+            'gpv_reportes', // Slug del submenú
+            array($this, 'gpv_pagina_reportes') // Función para mostrar la página
         );
 
         add_submenu_page(
@@ -168,13 +168,31 @@ class GPV_Admin
     }
 
     /**
-     * Método para mostrar la página Hello World
+     * Muestra la página de reportes de movimientos
      */
-    public function gpv_pagina_hello_world()
+    public function gpv_pagina_reportes()
     {
-        // Incluir archivo de vista
-        require_once GPV_PLUGIN_DIR . 'admin/views/hello-world-report.php';
-        gpv_hello_world_view();
+        // Verificamos qué acción queremos realizar
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : 'list';
+
+        switch ($action) {
+            case 'new':
+                // Página para crear nuevo reporte
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
+                break;
+            case 'edit':
+                // Página para editar reporte
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
+                break;
+            case 'firmantes':
+                // Página para gestionar firmantes
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
+                break;
+            default:
+                // Listado de reportes (vista por defecto)
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
+                break;
+        }
     }
 
     /**

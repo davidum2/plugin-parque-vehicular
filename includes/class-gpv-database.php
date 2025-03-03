@@ -44,7 +44,38 @@ class GPV_Database
         $tabla_usuarios = $this->wpdb->prefix . 'gpv_usuarios';
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
+        // Nombres de nuevas tablas para reportes
+        $tabla_reportes_movimientos = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+        $tabla_firmantes = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+
         $sql = "";
+
+        // Tabla de Reportes de Movimientos
+        $sql .= "CREATE TABLE IF NOT EXISTS $tabla_reportes_movimientos (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        vehiculo_id mediumint(9) NOT NULL,
+        vehiculo_siglas varchar(20) NOT NULL,
+        vehiculo_nombre varchar(100) NOT NULL,
+        odometro_inicial float NOT NULL,
+        odometro_final float NOT NULL,
+        fecha_inicial date NOT NULL,
+        hora_inicial time NOT NULL,
+        fecha_final date NOT NULL,
+        hora_final time NOT NULL,
+        distancia_total float NOT NULL,
+        conductor_id int(11) NOT NULL,
+        conductor varchar(100) NOT NULL,
+        movimientos_incluidos text NOT NULL,
+        numero_mensaje varchar(50) DEFAULT NULL,
+        firmante_id mediumint(9) DEFAULT NULL,
+        fecha_reporte date NOT NULL,
+        estado varchar(20) DEFAULT 'pendiente',
+        notas text DEFAULT NULL,
+        creado_en datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY vehiculo_idx (vehiculo_id)
+    ) $charset_collate;";
 
         // Tabla Vehículos (ampliada)
         $sql .= "CREATE TABLE $tabla_vehiculos (
@@ -87,6 +118,8 @@ class GPV_Database
             ruta varchar(255) DEFAULT NULL,
             estado varchar(20) DEFAULT 'en_progreso',
             notas longtext DEFAULT NULL,
+            reportado tinyint(1) DEFAULT 0,
+            reporte_id mediumint(9) DEFAULT NULL,
             creado_en datetime DEFAULT CURRENT_TIMESTAMP,
             modificado_en datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -877,7 +910,111 @@ class GPV_Database
             ['%d']
         );
     }
+    /**
+     * Obtener movimientos elegibles para reporte
+     *
+     * @param string $fecha_reporte Fecha para el reporte
+     * @return array Lista de movimientos elegibles
+     */
+    public function get_movimientos_para_reporte($fecha_reporte)
+    {
+        $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
+        $tabla_vehiculos = $this->wpdb->prefix . 'gpv_vehiculos';
 
+        // Obtener todos los movimientos completados, no reportados
+        $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
+              FROM $tabla_movimientos m
+              JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
+              WHERE m.estado = 'completado'
+              AND m.reportado = 0
+              AND m.distancia_recorrida IS NOT NULL
+              ORDER BY v.id, m.hora_salida";
+
+        $movimientos = $this->wpdb->get_results($query);
+
+        // Agrupar por vehículo
+        $por_vehiculo = [];
+        foreach ($movimientos as $mov) {
+            if (!isset($por_vehiculo[$mov->vehiculo_id])) {
+                $por_vehiculo[$mov->vehiculo_id] = [];
+            }
+            $por_vehiculo[$mov->vehiculo_id][] = $mov;
+        }
+
+        // Procesar cada vehículo para acumular movimientos
+        $elegibles = [];
+
+        foreach ($por_vehiculo as $vehiculo_id => $movs) {
+            // Acumular movimientos hasta superar 30 km
+            $acumulado = [];
+            $distancia_total = 0;
+
+            foreach ($movs as $mov) {
+                $distancia_total += $mov->distancia_recorrida;
+                $acumulado[] = $mov;
+
+                // Si superamos los 30 km, este grupo es elegible
+                if ($distancia_total >= 30) {
+                    // Crear objeto para el reporte
+                    $elegible = new stdClass();
+                    $elegible->id = implode(',', array_map(function ($m) {
+                        return $m->id;
+                    }, $acumulado));
+                    $elegible->vehiculo_id = $vehiculo_id;
+                    $elegible->vehiculo_siglas = $mov->siglas;
+                    $elegible->vehiculo_nombre = $mov->nombre_vehiculo;
+                    $elegible->odometro_inicial = $acumulado[0]->odometro_salida;
+                    $elegible->odometro_final = end($acumulado)->odometro_entrada;
+                    $elegible->fecha_inicial = date('Y-m-d', strtotime($acumulado[0]->hora_salida));
+                    $elegible->hora_inicial = date('H:i:s', strtotime($acumulado[0]->hora_salida));
+                    $elegible->fecha_final = date('Y-m-d', strtotime(end($acumulado)->hora_entrada));
+                    $elegible->hora_final = date('H:i:s', strtotime(end($acumulado)->hora_entrada));
+                    $elegible->distancia_total = $distancia_total;
+                    $elegible->conductor = end($acumulado)->conductor;
+                    $elegible->conductor_id = end($acumulado)->conductor_id;
+
+                    $elegibles[] = $elegible;
+
+                    // Reiniciar acumulación
+                    $acumulado = [];
+                    $distancia_total = 0;
+                }
+            }
+
+            // Si quedan movimientos acumulados pero no superan 30 km,
+            // verificar si han pasado más de 7 días desde el primer movimiento
+            if (!empty($acumulado)) {
+                $primer_mov = $acumulado[0];
+                $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
+
+                if ($dias_pasados > 7) {
+                    // Ha pasado más de una semana, incluirlo aunque no supere 30 km
+                    $ultimo_mov = end($acumulado);
+
+                    $elegible = new stdClass();
+                    $elegible->id = implode(',', array_map(function ($m) {
+                        return $m->id;
+                    }, $acumulado));
+                    $elegible->vehiculo_id = $vehiculo_id;
+                    $elegible->vehiculo_siglas = $primer_mov->siglas;
+                    $elegible->vehiculo_nombre = $primer_mov->nombre_vehiculo;
+                    $elegible->odometro_inicial = $primer_mov->odometro_salida;
+                    $elegible->odometro_final = $ultimo_mov->odometro_entrada;
+                    $elegible->fecha_inicial = date('Y-m-d', strtotime($primer_mov->hora_salida));
+                    $elegible->hora_inicial = date('H:i:s', strtotime($primer_mov->hora_salida));
+                    $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
+                    $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
+                    $elegible->distancia_total = $distancia_total;
+                    $elegible->conductor = $ultimo_mov->conductor;
+                    $elegible->conductor_id = $ultimo_mov->conductor_id;
+
+                    $elegibles[] = $elegible;
+                }
+            }
+        }
+
+        return $elegibles;
+    }
 
 
     /**********************
@@ -1174,5 +1311,173 @@ class GPV_Database
         }
 
         return $stats;
+    }
+
+    /**
+     * Obtener lista de firmantes autorizados
+     *
+     * @param array $args Argumentos para filtrar
+     * @return array Lista de firmantes
+     */
+    public function get_firmantes($args = [])
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        $query = "SELECT * FROM $tabla";
+
+        // Filtros
+        if (!empty($args)) {
+            $query .= " WHERE 1=1";
+
+            if (isset($args['activo'])) {
+                $query .= $this->wpdb->prepare(" AND activo = %d", $args['activo']);
+            }
+
+            if (isset($args['id'])) {
+                $query .= $this->wpdb->prepare(" AND id = %d", $args['id']);
+            }
+        }
+
+        // Ordenación
+        $query .= " ORDER BY nombre ASC";
+
+        return $this->wpdb->get_results($query);
+    }
+
+    /**
+     * Insertar un nuevo firmante autorizado
+     *
+     * @param array $data Datos del firmante
+     * @return int|false ID del firmante insertado o false en caso de error
+     */
+    public function insert_firmante($data)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        // Valores por defecto
+        $defaults = [
+            'activo' => 1,
+            'fecha_creacion' => current_time('mysql')
+        ];
+
+        $data = wp_parse_args($data, $defaults);
+
+        $result = $this->wpdb->insert($tabla, $data);
+
+        if ($result) {
+            return $this->wpdb->insert_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Obtener reportes de movimientos
+     *
+     * @param array $args Argumentos para filtrar
+     * @return array Lista de reportes
+     */
+    public function get_reportes_movimientos($args = [])
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+
+        $query = "SELECT * FROM $tabla";
+
+        // Filtros
+        if (!empty($args)) {
+            $query .= " WHERE 1=1";
+
+            if (isset($args['fecha_reporte'])) {
+                $query .= $this->wpdb->prepare(" AND fecha_reporte = %s", $args['fecha_reporte']);
+            }
+
+            if (isset($args['estado'])) {
+                $query .= $this->wpdb->prepare(" AND estado = %s", $args['estado']);
+            }
+
+            if (isset($args['vehiculo_id'])) {
+                $query .= $this->wpdb->prepare(" AND vehiculo_id = %d", $args['vehiculo_id']);
+            }
+        }
+
+        // Ordenación
+        if (isset($args['orderby'])) {
+            $orderby = sanitize_sql_orderby($args['orderby']);
+            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
+            $query .= " ORDER BY $orderby $order";
+        } else {
+            $query .= " ORDER BY fecha_reporte DESC, vehiculo_nombre ASC";
+        }
+
+        // Límite
+        if (isset($args['limit']) && is_numeric($args['limit'])) {
+            $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
+
+            if (isset($args['offset']) && is_numeric($args['offset'])) {
+                $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
+            }
+        }
+
+        return $this->wpdb->get_results($query);
+    }
+
+    /**
+     * Insertar un nuevo reporte de movimiento
+     *
+     * @param array $data Datos del reporte
+     * @return int|false ID del reporte insertado o false en caso de error
+     */
+    public function insert_reporte_movimiento($data)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+
+        // Valores por defecto
+        $defaults = [
+            'estado' => 'pendiente',
+            'creado_en' => current_time('mysql')
+        ];
+
+        $data = wp_parse_args($data, $defaults);
+
+        $result = $this->wpdb->insert($tabla, $data);
+
+        if ($result) {
+            $reporte_id = $this->wpdb->insert_id;
+
+            // Actualizar los movimientos incluidos
+            if (isset($data['movimientos_incluidos']) && !empty($data['movimientos_incluidos'])) {
+                $movimientos_ids = explode(',', $data['movimientos_incluidos']);
+                foreach ($movimientos_ids as $movimiento_id) {
+                    $this->marcar_movimiento_reportado($movimiento_id, $reporte_id);
+                }
+            }
+
+            return $reporte_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Marcar un movimiento como reportado
+     *
+     * @param int $movimiento_id ID del movimiento
+     * @param int $reporte_id ID del reporte
+     * @return int|false Número de filas actualizadas o false en caso de error
+     */
+    public function marcar_movimiento_reportado($movimiento_id, $reporte_id)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_movimientos';
+
+        return $this->wpdb->update(
+            $tabla,
+            [
+                'reportado' => 1,
+                'reporte_id' => $reporte_id
+            ],
+            ['id' => $movimiento_id],
+            ['%d', '%d'],
+            ['%d']
+        );
     }
 }
