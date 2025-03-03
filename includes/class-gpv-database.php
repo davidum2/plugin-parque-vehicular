@@ -786,7 +786,8 @@ class GPV_Database
 
             if ($vehiculo) {
                 // Calcular nuevo nivel de combustible
-                $nuevo_nivel = min(100, $vehiculo->nivel_combustible + ($data['litros_cargados'] / $vehiculo->capacidad_tanque * 100));
+                // Calcular nuevo nivel de combustible en litros
+                $nuevo_nivel = min($vehiculo->capacidad_tanque, $vehiculo->nivel_combustible + $data['litros_cargados']);
 
                 $this->update_vehicle($data['vehiculo_id'], [
                     'odometro_actual' => $data['odometro_carga'],
@@ -833,10 +834,11 @@ class GPV_Database
 
                 if ($vehiculo) {
                     // Restar el valor anterior
-                    $nivel_previo = $vehiculo->nivel_combustible - ($current_fuel->litros_cargados / $vehiculo->capacidad_tanque * 100);
+                    // Restar el valor anterior en litros
+                    $nivel_previo = $vehiculo->nivel_combustible - $current_fuel->litros_cargados;
+                    // Sumar el nuevo valor en litros
+                    $nuevo_nivel = min($vehiculo->capacidad_tanque, $nivel_previo + $data['litros_cargados']);
 
-                    // Sumar el nuevo valor
-                    $nuevo_nivel = min(100, $nivel_previo + ($data['litros_cargados'] / $vehiculo->capacidad_tanque * 100));
 
                     $this->update_vehicle($current_fuel->vehiculo_id, [
                         'nivel_combustible' => $nuevo_nivel,

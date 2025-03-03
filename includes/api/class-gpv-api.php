@@ -530,9 +530,9 @@ class GPV_API
                 // Calcular consumo estimado
                 $params['combustible_consumido'] = $params['distancia_recorrida'] / $vehicle->factor_consumo;
 
-                // Calcular nuevo nivel de combustible
-                $consumo_porcentaje = ($params['combustible_consumido'] / $vehicle->capacidad_tanque) * 100;
-                $nuevo_nivel = max(0, $vehicle->nivel_combustible - $consumo_porcentaje);
+                // Calcular nuevo nivel de combustible en litros
+                $nuevo_nivel = max(0, $vehicle->nivel_combustible - $params['combustible_consumido']);
+                $params['nivel_combustible'] = $nuevo_nivel;
 
                 $params['nivel_combustible'] = $nuevo_nivel;
             }

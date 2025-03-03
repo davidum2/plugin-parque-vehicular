@@ -8,17 +8,24 @@ require_once plugin_dir_path(__FILE__) . '../frontend/class-gpv-frontend.php';
 
 class GPV_Shortcodes
 {
+    private $database;
     private $forms;
     private $frontend;
 
     public function __construct()
     {
+        // Obtener instancia de base de datos
+        global $GPV_Database;
+        $this->database = $GPV_Database;
+
         $this->forms = new GPV_Forms();
         $this->frontend = new GPV_Frontend();
 
         // Registrar todos los shortcodes
         $this->register_shortcodes();
     }
+
+
 
     /**
      * Registrar todos los shortcodes del plugin
@@ -30,7 +37,7 @@ class GPV_Shortcodes
         add_shortcode('gpv_form_entrada', array($this, 'formulario_entrada_shortcode'));
         add_shortcode('gpv_form_movimiento', array($this, 'formulario_movimiento_shortcode'));
         add_shortcode('gpv_movimientos_activos', array($this, 'movimientos_activos_shortcode'));
-
+        add_shortcode('gpv_listado_vehiculos', array($this, 'listado_vehiculos_shortcode'));
         add_shortcode('gpv_form_carga', array($this, 'formulario_carga_shortcode'));
         add_shortcode('gpv_form_vehiculo', array($this, 'formulario_vehiculo_shortcode'));
 
@@ -42,6 +49,109 @@ class GPV_Shortcodes
         add_shortcode('gpv_driver_panel', array($this, 'driver_panel_shortcode'));
         add_shortcode('gpv_consultant_panel', array($this, 'consultant_panel_shortcode'));
         add_shortcode('gpv_driver_dashboard', array($this, 'driver_dashboard_shortcode'));
+    }
+    /**
+     * Shortcode para mostrar listado de vehículos
+     *
+     * @return string HTML con la tabla de vehículos
+     */
+
+    public function listado_vehiculos_shortcode($atts = [])
+    {
+        // Obtener la instancia de la base de datos explícitamente
+        global $GPV_Database;
+
+        // Si la variable global no está establecida, intentar obtenerla del singleton
+        if (!$GPV_Database && function_exists('GPV')) {
+            $gpv = GPV();
+            if (isset($gpv->database)) {
+                $GPV_Database = $gpv->database;
+            }
+        }
+
+        // Si todavía no está disponible, mostrar mensaje de error
+        if (!$GPV_Database) {
+            return '<div class="gpv-error">' . __('Error: No se pudo acceder a la base de datos.', 'gestion-parque-vehicular') . '</div>';
+        }
+
+        // Verificar permisos
+        if (!current_user_can('gpv_view_vehicles') && !current_user_can('gpv_view_assigned_vehicles')) {
+            return '<div class="gpv-error">' . __('No tienes permiso para ver este listado.', 'gestion-parque-vehicular') . '</div>';
+        }
+
+        // Filtros de usuario
+        $args = [];
+
+        // Si es operador, mostrar solo sus vehículos asignados
+        if (current_user_can('gpv_view_assigned_vehicles') && !current_user_can('gpv_view_vehicles')) {
+            $args['conductor_asignado'] = get_current_user_id();
+        }
+
+        // Obtener vehículos
+        $vehiculos = $GPV_Database->get_vehicles($args);
+
+        ob_start();
+?>
+        <div class="gpv-listado-container">
+            <h2><?php esc_html_e('Estado de Vehículos', 'gestion-parque-vehicular') ?></h2>
+            <?php if (empty($vehiculos)) : ?>
+                <p><?php esc_html_e('No hay vehículos disponibles.', 'gestion-parque-vehicular') ?></p>
+            <?php else : ?>
+                <div class="gpv-table-responsive">
+                    <table class="gpv-table">
+                        <thead>
+                            <tr>
+                                <th><?php esc_html_e('Siglas', 'gestion-parque-vehicular') ?></th>
+                                <th><?php esc_html_e('Nombre', 'gestion-parque-vehicular') ?></th>
+                                <th><?php esc_html_e('Odómetro', 'gestion-parque-vehicular') ?></th>
+                                <th><?php esc_html_e('Combustible', 'gestion-parque-vehicular') ?></th>
+                                <th><?php esc_html_e('Estado', 'gestion-parque-vehicular') ?></th>
+                                <th><?php esc_html_e('Última act.', 'gestion-parque-vehicular') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($vehiculos as $vehiculo) :
+                                // Calcular porcentaje de combustible para mostrar
+                                $porcentaje_combustible = ($vehiculo->capacidad_tanque > 0)
+                                    ? ($vehiculo->nivel_combustible / $vehiculo->capacidad_tanque) * 100
+                                    : 0;
+
+                                // Determinar clase de estilo según nivel
+                                $clase_combustible = '';
+                                if ($porcentaje_combustible < 20) {
+                                    $clase_combustible = 'gpv-nivel-bajo';
+                                } elseif ($porcentaje_combustible < 40) {
+                                    $clase_combustible = 'gpv-nivel-medio';
+                                }
+                            ?>
+                                <tr>
+                                    <td><?php echo esc_html($vehiculo->siglas) ?></td>
+                                    <td><?php echo esc_html($vehiculo->nombre_vehiculo) ?></td>
+                                    <td><?php echo esc_html($vehiculo->odometro_actual) ?> <?php echo esc_html($vehiculo->medida_odometro) ?></td>
+                                    <td class="<?php echo esc_attr($clase_combustible) ?>">
+                                        <?php echo esc_html(number_format($vehiculo->nivel_combustible, 2)) ?> L
+                                        <br>
+                                        <small>(<?php echo esc_html(number_format($porcentaje_combustible, 1)) ?>%)</small>
+                                    </td>
+                                    <td class="gpv-estado-<?php echo esc_attr($vehiculo->estado) ?>">
+                                        <?php echo esc_html(ucfirst($vehiculo->estado)) ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($vehiculo->ultima_actualizacion)) : ?>
+                                            <?php echo esc_html(date_i18n(get_option('date_format'), strtotime($vehiculo->ultima_actualizacion))) ?>
+                                        <?php else : ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php
+        return ob_get_clean();
     }
 
     /**
@@ -145,7 +255,7 @@ class GPV_Shortcodes
 
         // Preparar salida HTML
         ob_start();
-?>
+    ?>
         <div class="gpv-movimientos-container">
             <h2><?php esc_html_e('Mis Movimientos Activos', 'gestion-parque-vehicular'); ?></h2>
 

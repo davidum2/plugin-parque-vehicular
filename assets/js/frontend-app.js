@@ -644,7 +644,7 @@ function initializeReactApp(panelType, container) {
               type="number"
               id="odometro_salida"
               name="odometro_salida"
-              step="0.1"
+              step="1"
               value={formData.odometro_salida}
               onChange={handleInputChange}
               required
@@ -710,7 +710,7 @@ function initializeReactApp(panelType, container) {
               type="number"
               id="odometro_entrada"
               name="odometro_entrada"
-              step="0.1"
+              step="1"
               value={formData.odometro_entrada}
               onChange={handleInputChange}
               required

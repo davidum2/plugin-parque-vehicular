@@ -59,8 +59,9 @@ function gpv_form_carga_combustible()
                 $result = $GPV_Database->insert_fuel($data);
 
                 if ($result) {
-                    // Actualizar nivel de combustible del vehículo
-                    $nuevo_nivel = min(100, $vehiculo->nivel_combustible + ($litros_cargados / $vehiculo->capacidad_tanque * 100));
+
+                    // Actualizar nivel de combustible del vehículo en litros
+                    $nuevo_nivel = min($vehiculo->capacidad_tanque, $vehiculo->nivel_combustible + $litros_cargados);
 
                     $GPV_Database->update_vehicle($vehiculo_id, array(
                         'odometro_actual' => $odometro_carga,

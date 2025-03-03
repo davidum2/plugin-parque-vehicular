@@ -88,6 +88,7 @@ class GPV_Plugin
 
         // Shortcodes
         require_once GPV_PLUGIN_DIR . 'includes/class-gpv-shortcodes.php';
+        require_once GPV_PLUGIN_DIR . 'frontend/form-carga-de-combustible.php';
 
         // Dashboard
         require_once GPV_PLUGIN_DIR . 'includes/dashboard/class-gpv-driver-dashboard.php';

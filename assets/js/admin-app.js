@@ -535,12 +535,7 @@
                     vehicle.nivel_combustible >= 0 &&
                     vehicle.capacidad_tanque > 0
                   ) {
-                    const consumoPorcentaje =
-                      (combustible / vehicle.capacidad_tanque) * 100;
-                    const nivelFinal = Math.max(
-                      0,
-                      vehicle.nivel_combustible - consumoPorcentaje
-                    );
+                    const nivelFinal = vehicle.nivel_combustible - combustible;
                     $('#nivel_combustible').val(nivelFinal.toFixed(2));
 
                     // Advertencia si el nivel es bajo

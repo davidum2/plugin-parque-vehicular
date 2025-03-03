@@ -206,9 +206,8 @@ class GPV_Quick_Actions
         $result = $this->database->insert_fuel($fuel_data);
 
         if ($result) {
-            // Update vehicle's fuel level and odometer
-            $nuevo_nivel = min(100, $vehicle->nivel_combustible +
-                ($litros_cargados / $vehicle->capacidad_tanque * 100));
+            // Update vehicle's fuel level (in liters) and odometer
+            $nuevo_nivel = min($vehicle->capacidad_tanque, $vehicle->nivel_combustible + $litros_cargados);
 
             $this->database->update_vehicle($vehicle_id, array(
                 'odometro_actual' => $odometro_carga,

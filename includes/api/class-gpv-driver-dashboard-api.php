@@ -145,7 +145,7 @@ class GPV_Driver_Dashboard_API
             'vehicles' => $this->get_assigned_vehicles_data(),
             'movements' => $this->get_recent_movements_data(),
             'fuel_loads' => $this->get_fuel_loads_data(),
-            'maintenances' => $this->get_upcoming_maintenances_data(),
+
             'summary' => $this->get_dashboard_summary($user_id)
         );
 
@@ -220,39 +220,7 @@ class GPV_Driver_Dashboard_API
         ), 200);
     }
 
-    /**
-     * Get upcoming maintenances
-     *
-     * @param WP_REST_Request $request
-     * @return WP_REST_Response
-     */
-    public function get_upcoming_maintenances($request)
-    {
-        $limit = $request->get_param('limit') ?: 10;
 
-        // Get assigned vehicles first
-        $vehicles = $this->database->get_vehicles(array(
-            'conductor_asignado' => $this->user_id
-        ));
-
-        // Extract vehicle IDs
-        $vehicle_ids = wp_list_pluck($vehicles, 'id');
-
-        $maintenances = $this->database->get_maintenances(array(
-            'vehiculo_id' => $vehicle_ids,
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d'),
-            'fecha_hasta' => date('Y-m-d', strtotime('+30 days')),
-            'limit' => $limit,
-            'orderby' => 'fecha_programada',
-            'order' => 'ASC'
-        ));
-
-        return new WP_REST_Response(array(
-            'status' => 'success',
-            'data' => $maintenances
-        ), 200);
-    }
 
     /**
      * Register a new movement
@@ -397,13 +365,8 @@ class GPV_Driver_Dashboard_API
 
         if ($result) {
             // Update vehicle's fuel level and odometer
-            $nuevo_nivel = min(100, $vehicle->nivel_combustible +
-                ($litros_cargados / $vehicle->capacidad_tanque * 100));
-
-            $this->database->update_vehicle($vehicle_id, array(
-                'odometro_actual' => $odometro_carga,
-                'nivel_combustible' => $nuevo_nivel
-            ));
+            // Update vehicle's fuel level (in liters) and odometer
+            $nuevo_nivel = min($vehicle->capacidad_tanque, $vehicle->nivel_combustible + $litros_cargados);
 
             return new WP_REST_Response(array(
                 'status' => 'success',
@@ -438,8 +401,7 @@ class GPV_Driver_Dashboard_API
             'total_movements' => $this->get_total_movements($user_id),
             'total_fuel_loads' => $this->get_total_fuel_loads($user_id),
             'total_distance' => $this->get_total_distance($user_id),
-            'total_fuel_consumption' => $this->get_total_fuel_consumption($user_id),
-            'upcoming_maintenances' => $this->count_upcoming_maintenances($user_id)
+            'total_fuel_consumption' => $this->get_total_fuel_consumption($user_id)
         );
 
         return $summary;
@@ -517,32 +479,6 @@ class GPV_Driver_Dashboard_API
         return round($total_fuel, 2);
     }
 
-    /**
-     * Count upcoming maintenances for driver's vehicles
-     *
-     * @param int $user_id
-     * @return int
-     */
-    private function count_upcoming_maintenances($user_id)
-    {
-        // Get assigned vehicles
-        $vehicles = $this->database->get_vehicles(array(
-            'conductor_asignado' => $user_id
-        ));
-
-        // Extract vehicle IDs
-        $vehicle_ids = wp_list_pluck($vehicles, 'id');
-
-        // Get upcoming maintenances
-        $maintenances = $this->database->get_maintenances(array(
-            'vehiculo_id' => $vehicle_ids,
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d'),
-            'fecha_hasta' => date('Y-m-d', strtotime('+30 days'))
-        ));
-
-        return count($maintenances);
-    }
 
     /**
      * Get vehicle data for assigned vehicles
@@ -584,32 +520,6 @@ class GPV_Driver_Dashboard_API
             'limit' => 5,
             'orderby' => 'fecha_carga',
             'order' => 'DESC'
-        ));
-    }
-
-    /**
-     * Get upcoming maintenances data
-     *
-     * @return array
-     */
-    private function get_upcoming_maintenances_data()
-    {
-        // Get assigned vehicles
-        $vehicles = $this->database->get_vehicles(array(
-            'conductor_asignado' => $this->user_id
-        ));
-
-        // Extract vehicle IDs
-        $vehicle_ids = wp_list_pluck($vehicles, 'id');
-
-        return $this->database->get_maintenances(array(
-            'vehiculo_id' => $vehicle_ids,
-            'estado' => 'programado',
-            'fecha_desde' => date('Y-m-d'),
-            'fecha_hasta' => date('Y-m-d', strtotime('+30 days')),
-            'limit' => 5,
-            'orderby' => 'fecha_programada',
-            'order' => 'ASC'
         ));
     }
 }

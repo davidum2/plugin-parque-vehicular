@@ -258,11 +258,10 @@ class GPV_Forms
             $combustible_consumido = $distancia_recorrida / $vehiculo->factor_consumo;
         }
 
-        // Calcular nivel de combustible restante
+        // Calcular nivel de combustible restante en litros
         $nivel_combustible = $vehiculo->nivel_combustible;
-        if ($vehiculo->capacidad_tanque > 0 && $combustible_consumido > 0) {
-            $porcentaje_consumido = ($combustible_consumido / $vehiculo->capacidad_tanque) * 100;
-            $nivel_combustible = max(0, $vehiculo->nivel_combustible - $porcentaje_consumido);
+        if ($combustible_consumido > 0) {
+            $nivel_combustible = max(0, $vehiculo->nivel_combustible - $combustible_consumido);
         }
 
         // Notas adicionales si se proporcionaron
@@ -705,9 +704,8 @@ class GPV_Forms
 
                     // Calcular nivel final de combustible
                     let nuevoNivel = nivelCombustible;
-                    if (capacidadTanque > 0 && combustibleConsumido > 0) {
-                        const porcentajeConsumido = (combustibleConsumido / capacidadTanque) * 100;
-                        nuevoNivel = Math.max(0, nivelCombustible - porcentajeConsumido);
+                    if (combustibleConsumido > 0) {
+                        nuevoNivel = Math.max(0, nivelCombustible - combustibleConsumido);
                     }
                     nivelFinal.textContent = nuevoNivel.toFixed(2);
 
@@ -937,10 +935,8 @@ class GPV_Forms
                         // Calcular nivel final de combustible como porcentaje
                         let porcentajeConsumido = 0;
                         let nuevoNivel = nivelCombustible;
-
-                        if (capacidadTanqueValue > 0 && combustibleConsumido > 0) {
-                            porcentajeConsumido = (combustibleConsumido / capacidadTanqueValue) * 100;
-                            nuevoNivel = Math.max(0, nivelCombustible - porcentajeConsumido);
+                        if (combustibleConsumido > 0) {
+                            nuevoNivel = Math.max(0, nivelCombustible - combustibleConsumido);
                         }
 
                         nivelFinal.textContent = nuevoNivel.toFixed(2);
