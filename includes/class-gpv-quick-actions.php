@@ -62,10 +62,7 @@ class GPV_Quick_Actions
         }
 
         // Check for nonce and action
-        if (
-            !isset($_POST['action']) ||
-            !wp_verify_nonce($_POST['_wpnonce'], 'gpv_quick_action')
-        ) {
+        if (!isset($_REQUEST['_wpnonce']) || !wp_verify_nonce($_REQUEST['_wpnonce'], 'gpv_quick_action')) {
             return;
         }
 

@@ -21,6 +21,8 @@ class GPV_Admin
 
         // Agregar menú en el panel de administración
         add_action('admin_menu', array($this, 'gpv_agregar_menu_admin'));
+        add_action('admin_post_gpv_generate_hello_world', array($this, 'generate_hello_world_pdf'));
+        add_action('admin_post_gpv_generate_cei_report', array($this, 'generate_cei_report'));
 
         // Agregar estilos y scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
@@ -111,6 +113,15 @@ class GPV_Admin
 
         add_submenu_page(
             'gpv_menu', // Slug del menú padre
+            __('Hello World PDF', 'gestion-parque-vehicular'), // Título del submenú
+            __('Hello World PDF', 'gestion-parque-vehicular'), // Título a mostrar
+            'manage_options', // Capacidad necesaria
+            'gpv_hello_world', // Slug del submenú
+            array($this, 'gpv_pagina_hello_world') // Función para mostrar la página
+        );
+
+        add_submenu_page(
+            'gpv_menu', // Slug del menú padre
             __('Movimientos Diarios', 'gestion-parque-vehicular'), // Título del submenú
             __('Movimientos Diarios', 'gestion-parque-vehicular'), // Título a mostrar
             'manage_options', // Capacidad necesaria
@@ -136,6 +147,34 @@ class GPV_Admin
             'gpv_configuracion', // Slug del submenú
             array($this, 'gpv_pagina_configuracion') // Función para mostrar configuración
         );
+        add_submenu_page(
+            'gpv_menu', // Slug del menú padre
+            __('Reporte C.E.I.', 'gestion-parque-vehicular'), // Título del submenú
+            __('Reporte C.E.I.', 'gestion-parque-vehicular'), // Título a mostrar
+            'manage_options', // Capacidad necesaria
+            'gpv_cei_report', // Slug del submenú
+            array($this, 'gpv_pagina_cei_report') // Función para mostrar la página
+        );
+    }
+
+    /**
+     * Método para mostrar la página de reportes C.E.I.
+     */
+    public function gpv_pagina_cei_report()
+    {
+        // Incluir archivo de vista
+        require_once GPV_PLUGIN_DIR . 'admin/views/cei-report-view.php';
+        gpv_cei_report_view();
+    }
+
+    /**
+     * Método para mostrar la página Hello World
+     */
+    public function gpv_pagina_hello_world()
+    {
+        // Incluir archivo de vista
+        require_once GPV_PLUGIN_DIR . 'admin/views/hello-world-report.php';
+        gpv_hello_world_view();
     }
 
     /**
@@ -318,6 +357,59 @@ class GPV_Admin
         echo '</form>';
 
         echo '</div>';
+    }
+
+    /**
+     * Método para generar el PDF Hello World
+     */
+    public function generate_hello_world_pdf()
+    {
+        // Verificar nonce - corregido para usar $_REQUEST en lugar de $_POST
+        if (!isset($_REQUEST['gpv_hello_world_nonce']) || !wp_verify_nonce($_REQUEST['gpv_hello_world_nonce'], 'gpv_hello_world')) {
+            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        }
+
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+        }
+
+        // Incluir la clase del reporte
+        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-simple-report.php';
+
+        // Crear instancia y generar PDF
+        $report = new GPV_Simple_Report();
+        $report->generate_hello_world();
+    }
+
+    /**
+     * Método para generar el reporte C.E.I.
+     */
+    public function generate_cei_report()
+    {
+        // Verificar nonce
+        if (!isset($_REQUEST['gpv_cei_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_cei_report_nonce'], 'gpv_cei_report')) {
+            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        }
+
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+        }
+
+        // Obtener ID del movimiento
+        $movement_id = isset($_POST['movement_id']) ? intval($_POST['movement_id']) : 0;
+
+        if (!$movement_id) {
+            wp_die(__('Debe seleccionar un movimiento válido.', 'gestion-parque-vehicular'));
+        }
+
+        // Incluir la clase del reporte
+        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-cei-report.php';
+
+        // Crear instancia y generar PDF
+        $report = new GPV_CEI_Report();
+        $report->generate_cei_report($movement_id);
     }
 }
 

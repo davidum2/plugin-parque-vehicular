@@ -19,7 +19,9 @@ define('GPV_VERSION', '2.1.0');
 define('GPV_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('GPV_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('GPV_PLUGIN_FILE', __FILE__);
-
+if (!defined('GPV_PLUGIN_DIR')) {
+    define('GPV_PLUGIN_DIR', plugin_dir_path(__FILE__));
+}
 // Clase principal del plugin
 class GPV_Plugin
 {
