@@ -43,7 +43,7 @@ class GPV_Plugin
 
         // Hooks de inicialización
         add_action('plugins_loaded', array($this, 'init_plugin'));
-        add_action('init', array($this, 'register_post_types'));
+
 
         // Hooks para activación/desactivación
         register_activation_hook(GPV_PLUGIN_FILE, array($this, 'activate_plugin'));
