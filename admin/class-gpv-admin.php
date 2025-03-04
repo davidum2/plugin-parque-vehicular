@@ -99,11 +99,7 @@ class GPV_Admin
         require_once plugin_dir_path(__FILE__) . 'views/vehiculos-listado.php';
         require_once plugin_dir_path(__FILE__) . 'views/movimientos-listado.php';
         require_once plugin_dir_path(__FILE__) . 'views/cargas-listado.php';
-        require_once plugin_dir_path(__FILE__) . 'views/reportes-listado.php';
-        require_once plugin_dir_path(__FILE__) . 'views/reportes-nuevo.php';
-        require_once plugin_dir_path(__FILE__) . 'views/reportes-editar.php';
-        require_once plugin_dir_path(__FILE__) . 'views/reportes-firmantes.php';
-        require_once plugin_dir_path(__FILE__) . 'views/cei-report-view.php';
+        require_once plugin_dir_path(__FILE__) . 'views/views-reportes.php';
         require_once plugin_dir_path(__FILE__) . 'views/configuracion.php'; // Añadimos la inclusión del nuevo archivo
     }
 
@@ -281,20 +277,6 @@ class GPV_Admin
         gpv_configuracion_view(); // Llama a la función que renderiza la vista (definida en el archivo incluido)
     }
 
-    /**
-     * Muestra la página de reportes C.E.I.
-     *
-     * Renderiza la vista para generar reportes de Consumo Especifico de Inflamable (CEI),
-     * permitiendo a los usuarios generar informes específicos para el control de combustible.
-     *
-     * @access public
-     * @return void
-     */
-    public function gpv_pagina_cei_report()
-    {
-        require_once GPV_PLUGIN_DIR . 'admin/views/cei-report-view.php'; // Incluye la vista del reporte CEI
-        gpv_cei_report_view(); // Llama a la función que renderiza la vista (definida en el archivo incluido)
-    }
 
     /**
      * Muestra la página de listado de reportes de movimientos.
@@ -311,19 +293,19 @@ class GPV_Admin
 
         switch ($action) {
             case 'new': // Vista para crear un nuevo reporte
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
+                require_once GPV_PLUGIN_DIR . 'admin/views/views-reportes.php';
                 gpv_reportes_nuevo_view();
                 break;
             case 'edit': // Vista para editar un reporte existente
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
+                require_once GPV_PLUGIN_DIR . 'admin/views/views-reportes.php';
                 gpv_reportes_editar_view();
                 break;
             case 'firmantes': // Vista para gestionar firmantes autorizados
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
+                require_once GPV_PLUGIN_DIR . 'admin/views/views-reportes.php';
                 gpv_reportes_firmantes_view();
                 break;
             default: // Vista por defecto: listado de reportes
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
+                require_once GPV_PLUGIN_DIR . 'admin/views/views-reportes.php';
                 gpv_reportes_listado_view();
                 break;
         }
@@ -473,34 +455,7 @@ class GPV_Admin
     }
 
 
-    /**
-     * Procesa la generación del reporte C.E.I. en formato PDF y lo descarga automáticamente.
-     *
-     * Similar a `generate_movement_report`, pero específico para el reporte de Consumo Especifico de Inflamable (CEI).
-     *
-     * @access public
-     * @action admin_post_gpv_generate_cei_report
-     * @return void
-     */
-    public function generate_cei_report()
-    {
-        // --- Seguridad y Validaciones ---
-        if (!isset($_REQUEST[self::NONCE_NOMBRE_CEI_REPORTE]) || !wp_verify_nonce($_REQUEST[self::NONCE_NOMBRE_CEI_REPORTE], self::NONCE_ACTION_CEI_REPORTE)) {
-            wp_die(__('Error de seguridad: Nonce verification failed.', 'gestion-parque-vehicular'));
-        }
-        if (!current_user_can('manage_options')) {
-            wp_die(__('Permisos insuficientes.', 'gestion-parque-vehicular'));
-        }
-        $movement_id = isset($_POST['movement_id']) ? intval($_POST['movement_id']) : 0; // Obtiene y sanitiza el ID del movimiento
-        if (!$movement_id) {
-            wp_die(__('Debe seleccionar un movimiento válido.', 'gestion-parque-vehicular'));
-        }
 
-        // --- Incluir Clase y Generar/Descargar PDF de Reporte CEI ---
-        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-cei-report.php';
-        $cei_report = new GPV_CEI_Report();
-        $cei_report->generate_cei_report($movement_id); // Genera y descarga el reporte CEI, la descarga se maneja dentro de la clase
-    }
 
 
     /**
