@@ -70,22 +70,22 @@ $reportes = $GPV_Database->get_reportes_movimientos();
                                 <span class="gpv-estado-generado"><?php esc_html_e('Generado', 'gestion-parque-vehicular'); ?></span>
                             <?php endif; ?>
                         </td>
+
                         <td>
                             <a href="<?php echo esc_url(admin_url('admin.php?page=gpv_reportes&action=edit&id=' . $reporte->id)); ?>" class="button button-small">
                                 <?php esc_html_e('Editar', 'gestion-parque-vehicular'); ?>
                             </a>
 
                             <?php if ($reporte->estado === 'pendiente'): ?>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=gpv_reportes&action=generate&id=' . $reporte->id)); ?>" class="button button-primary button-small">
+                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=gpv_generate_movement_report&id=' . $reporte->id), 'gpv_generate_report', 'gpv_report_nonce')); ?>" class="button button-primary button-small">
                                     <?php esc_html_e('Generar PDF', 'gestion-parque-vehicular'); ?>
                                 </a>
                             <?php else: ?>
-                                <a href="<?php echo esc_url(admin_url('admin.php?page=gpv_reportes&action=download&id=' . $reporte->id)); ?>" class="button button-small">
+                                <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=gpv_download_movement_report&id=' . $reporte->id), 'gpv_download_report', 'gpv_report_nonce')); ?>" class="button button-small">
                                     <?php esc_html_e('Descargar PDF', 'gestion-parque-vehicular'); ?>
                                 </a>
                             <?php endif; ?>
-
-                            <a href="<?php echo esc_url(admin_url('admin.php?page=gpv_reportes&action=delete&id=' . $reporte->id . '&_wpnonce=' . wp_create_nonce('delete_reporte_' . $reporte->id))); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php esc_attr_e('¿Estás seguro de eliminar este reporte?', 'gestion-parque-vehicular'); ?>')">
+                            <a href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=gpv_delete_movement_report&id=' . $reporte->id), 'delete_reporte_' . $reporte->id)); ?>" class="button button-small button-link-delete" onclick="return confirm('<?php esc_attr_e('¿Estás seguro de eliminar este reporte?', 'gestion-parque-vehicular'); ?>')">
                                 <?php esc_html_e('Eliminar', 'gestion-parque-vehicular'); ?>
                             </a>
                         </td>

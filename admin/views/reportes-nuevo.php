@@ -182,6 +182,9 @@ $movimientos_elegibles = $GPV_Database->get_movimientos_para_reporte($fecha_repo
                                     <th scope="col"><?php esc_html_e('Fecha Regreso', 'gestion-parque-vehicular'); ?></th>
                                     <th scope="col"><?php esc_html_e('Hora Regreso', 'gestion-parque-vehicular'); ?></th>
                                     <th scope="col"><?php esc_html_e('Conductor', 'gestion-parque-vehicular'); ?></th>
+                                    <!-- En la cabecera de la tabla, después de la columna "Conductor" -->
+                                    <th scope="col"><?php esc_html_e('Propósito', 'gestion-parque-vehicular'); ?></th>
+
                                 </tr>
                             </thead>
                             <tbody>
@@ -216,6 +219,15 @@ $movimientos_elegibles = $GPV_Database->get_movimientos_para_reporte($fecha_repo
                                         <td>
                                             <input type="text" name="conductor[<?php echo $index; ?>]" value="<?php echo esc_attr($mov->conductor); ?>" class="gpv-editable-field">
                                         </td>
+                                        <td>
+                                            <select name="proposito[<?php echo $index; ?>]" class="gpv-editable-field">
+                                                <option value=""><?php esc_html_e('-- Seleccionar --', 'gestion-parque-vehicular'); ?></option>
+                                                <option value="Trasladar al Cmte."><?php esc_html_e('Trasladar al Cmte.', 'gestion-parque-vehicular'); ?></option>
+                                                <option value="Trasladar Personal"><?php esc_html_e('Trasladar Personal', 'gestion-parque-vehicular'); ?></option>
+                                                <option value="Abastecer de Agua"><?php esc_html_e('Abastecer de Agua', 'gestion-parque-vehicular'); ?></option>
+                                                <option value="Comision del Servicio"><?php esc_html_e('Comision del Servicio', 'gestion-parque-vehicular'); ?></option>
+                                            </select>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -239,6 +251,41 @@ $movimientos_elegibles = $GPV_Database->get_movimientos_para_reporte($fecha_repo
 </div>
 
 <style>
+    /* Estilo para hacer la tabla responsiva */
+    .gpv-table-responsive {
+        overflow-x: auto;
+        /* Esto añade el scroll horizontal cuando es necesario */
+        max-width: 100%;
+        /* Asegura que no exceda el ancho del contenedor */
+        margin-bottom: 20px;
+        -webkit-overflow-scrolling: touch;
+        /* Para un desplazamiento suave en iOS */
+    }
+
+    /* Ajustes para pantallas pequeñas */
+    @media screen and (max-width: 768px) {
+        #gpv-movimientos-table {
+            width: max-content;
+            /* Permite que la tabla mantenga su anchura natural */
+            min-width: 100%;
+            /* Asegura que al menos ocupe el ancho disponible */
+        }
+
+        #gpv-movimientos-table th,
+        #gpv-movimientos-table td {
+            white-space: nowrap;
+            /* Evita que el texto se rompa en múltiples líneas */
+        }
+
+        .gpv-time-field,
+        .gpv-editable-field {
+            width: 100%;
+            /* Asegura que los campos ocupen todo el ancho disponible */
+            min-width: 80px;
+            /* Establece un ancho mínimo para evitar campos demasiado estrechos */
+        }
+    }
+
     .gpv-form-container {
         background-color: #fff;
         border-radius: 8px;

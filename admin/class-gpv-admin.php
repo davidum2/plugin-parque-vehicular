@@ -18,14 +18,114 @@ class GPV_Admin
     {
         // Incluir archivos de vistas
         $this->include_view_files();
-
+        // Al inicio de la función generate_movement_report()
+        global $GPV_Database;
+        $GPV_Database->update_database_structure();
         // Agregar menú en el panel de administración
         add_action('admin_menu', array($this, 'gpv_agregar_menu_admin'));
         add_action('admin_post_gpv_generate_hello_world', array($this, 'generate_hello_world_pdf'));
         add_action('admin_post_gpv_generate_cei_report', array($this, 'generate_cei_report'));
+        add_action('admin_post_gpv_generate_movement_report', array($this, 'generate_movement_report'));
+        add_action('admin_post_gpv_download_movement_report', array($this, 'download_movement_report'));
+        add_action('admin_post_gpv_delete_movement_report', array($this, 'delete_movement_report'));
 
         // Agregar estilos y scripts
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
+    }
+    /**
+     * Método para eliminar un reporte
+     */
+    public function delete_movement_report()
+    {
+        // Verificar nonce
+        if (!isset($_REQUEST['_wpnonce']) || !wp_verify_nonce($_REQUEST['_wpnonce'], 'delete_reporte_' . $_GET['id'])) {
+            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        }
+
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+        }
+
+        // Obtener ID del reporte
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+        if (!$report_id) {
+            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
+        }
+
+        global $GPV_Database;
+        $reporte = $GPV_Database->get_reporte($report_id);
+
+        if (!$reporte) {
+            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=not_found'));
+            exit;
+        }
+
+        // Eliminar archivo PDF si existe
+        if (!empty($reporte->archivo_pdf)) {
+            $upload_dir = wp_upload_dir();
+            $pdf_path = $upload_dir['basedir'] . '/gpv-reportes/' . $reporte->archivo_pdf;
+
+            if (file_exists($pdf_path)) {
+                @unlink($pdf_path);
+            }
+        }
+
+        // Desmarcar movimientos incluidos
+        $movimiento_ids = explode(',', $reporte->movimientos_incluidos);
+        foreach ($movimiento_ids as $movimiento_id) {
+            $GPV_Database->desmarcar_movimiento_reportado($movimiento_id);
+        }
+
+        // Eliminar reporte
+        $result = $GPV_Database->delete_reporte($report_id);
+
+        // Redirigir con mensaje
+        if ($result) {
+            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=deleted'));
+        } else {
+            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=delete_error'));
+        }
+        exit;
+    }
+    /**
+     * Método para generar el reporte de movimientos en PDF
+     */
+    public function generate_movement_report()
+    {
+        // Verificar nonce
+        if (!isset($_REQUEST['gpv_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_report_nonce'], 'gpv_generate_report')) {
+            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        }
+
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+        }
+
+        // Obtener ID del reporte
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+        if (!$report_id) {
+            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
+        }
+
+        // Incluir la clase del reporte
+        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-report-pdf.php';
+
+        // Crear instancia y generar PDF
+        $report = new GPV_Report_PDF();
+        $filepath = $report->generate_report($report_id);
+
+        if ($filepath) {
+            // Redirigir de vuelta con un mensaje de éxito
+            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=pdf_generated&id=' . $report_id));
+        } else {
+            // Redirigir con mensaje de error
+            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=pdf_error&id=' . $report_id));
+        }
+        exit;
     }
 
     /**
@@ -37,7 +137,53 @@ class GPV_Admin
         require_once plugin_dir_path(__FILE__) . 'views/movimientos-listado.php';
         require_once plugin_dir_path(__FILE__) . 'views/cargas-listado.php';
     }
+    /**
+     * Método para descargar un reporte en PDF
+     */
+    public function download_movement_report()
+    {
+        // Verificar nonce
+        if (!isset($_REQUEST['gpv_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_report_nonce'], 'gpv_download_report')) {
+            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        }
 
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+        }
+
+        // Obtener ID del reporte
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+
+        if (!$report_id) {
+            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
+        }
+
+        global $GPV_Database;
+        $reporte = $GPV_Database->get_reporte($report_id);
+
+        if (!$reporte || empty($reporte->archivo_pdf)) {
+            wp_die(__('El archivo PDF no existe o no está disponible.', 'gestion-parque-vehicular'));
+        }
+
+        $upload_dir = wp_upload_dir();
+        $pdf_path = $upload_dir['basedir'] . '/gpv-reportes/' . $reporte->archivo_pdf;
+
+        if (!file_exists($pdf_path)) {
+            wp_die(__('El archivo PDF no se encuentra en el servidor.', 'gestion-parque-vehicular'));
+        }
+
+        // Forzar descarga del archivo
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . basename($pdf_path) . '"');
+        header('Content-Length: ' . filesize($pdf_path));
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+        ob_clean();
+        flush();
+        readfile($pdf_path);
+        exit;
+    }
     /**
      * Cargar estilos y scripts de administración
      */

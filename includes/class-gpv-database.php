@@ -910,7 +910,44 @@ class GPV_Database
             ['%d']
         );
     }
+    /**
+     * Eliminar un reporte de movimiento
+     *
+     * @param int $id ID del reporte
+     * @return int|false Número de filas eliminadas o false en caso de error
+     */
+    public function delete_reporte($id)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
 
+        return $this->wpdb->delete(
+            $tabla,
+            ['id' => $id],
+            ['%d']
+        );
+    }
+
+    /**
+     * Desmarcar un movimiento como reportado
+     *
+     * @param int $movimiento_id ID del movimiento
+     * @return int|false Número de filas actualizadas o false en caso de error
+     */
+    public function desmarcar_movimiento_reportado($movimiento_id)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_movimientos';
+
+        return $this->wpdb->update(
+            $tabla,
+            [
+                'reportado' => 0,
+                'reporte_id' => null
+            ],
+            ['id' => $movimiento_id],
+            ['%d', '%d'],
+            ['%d']
+        );
+    }
     /**
      * Actualizar el estado de un reporte y opcionalmente su archivo PDF
      *
@@ -1614,6 +1651,19 @@ class GPV_Database
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
 
+        // Añadir a la función update_database_structure() en GPV_Database:
+        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
+
+        // Verificar si existe la columna archivo_pdf
+        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'archivo_pdf'") != 'archivo_pdf') {
+            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN archivo_pdf varchar(255) DEFAULT NULL");
+        }
+
+        // Verificar si existe la columna proposito
+        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'proposito'") != 'proposito') {
+            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN proposito varchar(100) DEFAULT NULL");
+        }
+
         // Verificar si existe la columna firmante2_id en la tabla de reportes
         $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
 
@@ -1622,7 +1672,10 @@ class GPV_Database
                 $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN firmante2_id mediumint(9) DEFAULT NULL");
             }
         }
-
+        // Verificar si existe la columna archivo_pdf en la tabla de reportes
+        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'archivo_pdf'") != 'archivo_pdf') {
+            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN archivo_pdf varchar(255) DEFAULT NULL");
+        }
         // Crear tabla de firmantes si no existe
         $tabla_firmantes = $wpdb->prefix . 'gpv_firmantes_autorizados';
 
