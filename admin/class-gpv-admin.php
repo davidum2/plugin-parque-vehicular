@@ -178,23 +178,43 @@ class GPV_Admin
         switch ($action) {
             case 'new':
                 // Página para crear nuevo reporte
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
+                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php')) {
+                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
+                }
                 break;
             case 'edit':
                 // Página para editar reporte
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
+                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php')) {
+                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
+                }
                 break;
             case 'firmantes':
                 // Página para gestionar firmantes
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
+                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php')) {
+                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista de firmantes no encontrado', 'gestion-parque-vehicular') . '</p></div>';
+                    // Fallback
+                    echo '<div class="wrap"><h1>' . __('Gestionar Firmantes', 'gestion-parque-vehicular') . '</h1>';
+                    echo '<p>' . __('La funcionalidad de gestión de firmantes no está disponible en este momento.', 'gestion-parque-vehicular') . '</p>';
+                    echo '<a href="' . esc_url(admin_url('admin.php?page=gpv_reportes')) . '" class="button">' . __('Volver a Reportes', 'gestion-parque-vehicular') . '</a>';
+                    echo '</div>';
+                }
                 break;
             default:
                 // Listado de reportes (vista por defecto)
-                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
+                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php')) {
+                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
+                }
                 break;
         }
     }
-
     /**
      * Muestra la página principal del plugin en el panel de administración.
      */
@@ -375,30 +395,29 @@ class GPV_Admin
         echo '</form>';
 
         echo '</div>';
+        echo '<div class="gpv-admin-section">';
+        echo '<h3>' . esc_html__('Herramientas de Base de Datos', 'gestion-parque-vehicular') . '</h3>';
+        echo '<p>' . esc_html__('Utiliza estas herramientas para actualizar la estructura de la base de datos si encuentras errores.', 'gestion-parque-vehicular') . '</p>';
+        echo '<form method="post" action="">';
+        wp_nonce_field('gpv_update_db', 'gpv_update_db_nonce');
+        echo '<p><input type="submit" name="gpv_update_db" class="button button-secondary" value="' . esc_attr__('Actualizar Estructura de Base de Datos', 'gestion-parque-vehicular') . '"></p>';
+        echo '</form>';
+
+        // Procesar actualización de BD si se solicitó
+        if (isset($_POST['gpv_update_db']) && isset($_POST['gpv_update_db_nonce']) && wp_verify_nonce($_POST['gpv_update_db_nonce'], 'gpv_update_db')) {
+            global $GPV_Database;
+            $result = $GPV_Database->update_database_structure();
+
+            if ($result) {
+                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Base de datos actualizada correctamente.', 'gestion-parque-vehicular') . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__('Error al actualizar la base de datos.', 'gestion-parque-vehicular') . '</p></div>';
+            }
+        }
+        echo '</div>';
     }
 
-    /**
-     * Método para generar el PDF Hello World
-     */
-    public function generate_hello_world_pdf()
-    {
-        // Verificar nonce - corregido para usar $_REQUEST en lugar de $_POST
-        if (!isset($_REQUEST['gpv_hello_world_nonce']) || !wp_verify_nonce($_REQUEST['gpv_hello_world_nonce'], 'gpv_hello_world')) {
-            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
-        }
 
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
-        }
-
-        // Incluir la clase del reporte
-        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-simple-report.php';
-
-        // Crear instancia y generar PDF
-        $report = new GPV_Simple_Report();
-        $report->generate_hello_world();
-    }
 
     /**
      * Método para generar el reporte C.E.I.

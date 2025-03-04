@@ -15,6 +15,84 @@ $firmantes = $GPV_Database->get_firmantes(['activo' => 1]);
 // Verificar si se envió el formulario
 $mensaje = '';
 if (isset($_POST['gpv_reporte_submit']) && isset($_POST['gpv_reporte_nonce']) && wp_verify_nonce($_POST['gpv_reporte_nonce'], 'gpv_reporte_action')) {
+    // Procesar el formulario
+    $fecha_reporte = sanitize_text_field($_POST['fecha_reporte']);
+    $numero_mensaje = sanitize_text_field($_POST['numero_mensaje']);
+    $firmante_id = intval($_POST['firmante_id']);
+
+    // Verificar movimientos seleccionados
+    if (!isset($_POST['movimientos']) || empty($_POST['movimientos'])) {
+        $mensaje = '<div class="notice notice-error"><p>' . __('Debe seleccionar al menos un movimiento para generar el reporte.', 'gestion-parque-vehicular') . '</p></div>';
+    } else {
+        // Procesar cada movimiento seleccionado
+        $movimientos_seleccionados = $_POST['movimientos'];
+        $movimiento_ids = implode(',', array_map('intval', $movimientos_seleccionados));
+
+        // Obtener detalles del primer movimiento para la información básica
+        $primer_movimiento_id = intval($movimientos_seleccionados[0]);
+        $movimiento = $GPV_Database->get_movement($primer_movimiento_id);
+
+        if ($movimiento) {
+            // Preparar datos para el reporte
+            $reporte_data = [
+                'vehiculo_id' => $movimiento->vehiculo_id,
+                'vehiculo_siglas' => $movimiento->vehiculo_siglas,
+                'vehiculo_nombre' => $movimiento->vehiculo_nombre,
+                'odometro_inicial' => $movimiento->odometro_salida,
+                'odometro_final' => $movimiento->odometro_entrada,
+                'fecha_inicial' => date('Y-m-d', strtotime($movimiento->hora_salida)),
+                'hora_inicial' => date('H:i:s', strtotime($movimiento->hora_salida)),
+                'fecha_final' => date('Y-m-d', strtotime($movimiento->hora_entrada)),
+                'hora_final' => date('H:i:s', strtotime($movimiento->hora_entrada)),
+                'distancia_total' => $movimiento->distancia_recorrida,
+                'conductor_id' => $movimiento->conductor_id,
+                'conductor' => $movimiento->conductor,
+                'movimientos_incluidos' => $movimiento_ids,
+                'numero_mensaje' => $numero_mensaje,
+                'firmante_id' => $firmante_id,
+                'fecha_reporte' => $fecha_reporte,
+                'estado' => 'pendiente'
+            ];
+
+            // Insertar reporte
+            $reporte_id = $GPV_Database->insert_reporte_movimiento($reporte_data);
+
+            if ($reporte_id) {
+                // Redireccionar al listado de reportes con mensaje de éxito
+                wp_redirect(admin_url('admin.php?page=gpv_reportes&message=created'));
+                exit;
+            } else {
+                $mensaje = '<div class="notice notice-error"><p>' . __('Error al crear el reporte. Por favor, intente de nuevo.', 'gestion-parque-vehicular') . '</p></div>';
+            }
+        } else {
+            $mensaje = '<div class="notice notice-error"><p>' . __('No se pudo obtener información del movimiento seleccionado.', 'gestion-parque-vehicular') . '</p></div>';
+        }
+    }
+}
+
+// Obtener todos los movimientos elegibles para reporte (no reportados y completos)
+$movimientos_elegibles = $GPV_Database->get_movimientos_para_reporte($fecha_reporte);
+?>
+
+<!-- El resto del formulario HTML se mantiene igual -->
+
+<?php
+// Salir si se accede directamente
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+global $GPV_Database;
+
+// Obtener la fecha actual por defecto
+$fecha_reporte = date('Y-m-d');
+
+// Obtener firmantes para el selector
+$firmantes = $GPV_Database->get_firmantes(['activo' => 1]);
+
+// Verificar si se envió el formulario
+$mensaje = '';
+if (isset($_POST['gpv_reporte_submit']) && isset($_POST['gpv_reporte_nonce']) && wp_verify_nonce($_POST['gpv_reporte_nonce'], 'gpv_reporte_action')) {
     // Procesar el formulario...
     $fecha_reporte = sanitize_text_field($_POST['fecha_reporte']);
     // Más procesamiento aquí...

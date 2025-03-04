@@ -921,16 +921,47 @@ class GPV_Database
         $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
         $tabla_vehiculos = $this->wpdb->prefix . 'gpv_vehiculos';
 
-        // Obtener todos los movimientos completados, no reportados
-        $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
+        // Verificar si existe la columna reportado
+        $reportado_exists = false;
+        $columns = $this->wpdb->get_results("SHOW COLUMNS FROM $tabla_movimientos");
+        foreach ($columns as $column) {
+            if ($column->Field === 'reportado') {
+                $reportado_exists = true;
+                break;
+            }
+        }
+
+        // Construir la consulta según la disponibilidad de la columna
+        if ($reportado_exists) {
+            $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
               FROM $tabla_movimientos m
               JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
               WHERE m.estado = 'completado'
               AND m.reportado = 0
               AND m.distancia_recorrida IS NOT NULL
               ORDER BY v.id, m.hora_salida";
+        } else {
+            // Consulta alternativa sin el filtro de reportado
+            $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
+              FROM $tabla_movimientos m
+              JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
+              WHERE m.estado = 'completado'
+              AND m.distancia_recorrida IS NOT NULL
+              ORDER BY v.id, m.hora_salida";
+        }
 
-        $movimientos = $this->wpdb->get_results($query);
+        // Intentar ejecutar la consulta
+        try {
+            $movimientos = $this->wpdb->get_results($query);
+        } catch (Exception $e) {
+            error_log('Error en consulta get_movimientos_para_reporte: ' . $e->getMessage());
+            return [];
+        }
+
+        // Si no hay movimientos, devolver array vacío
+        if (empty($movimientos)) {
+            return [];
+        }
 
         // Agrupar por vehículo
         $por_vehiculo = [];
@@ -950,7 +981,7 @@ class GPV_Database
             $distancia_total = 0;
 
             foreach ($movs as $mov) {
-                $distancia_total += $mov->distancia_recorrida;
+                $distancia_total += floatval($mov->distancia_recorrida);
                 $acumulado[] = $mov;
 
                 // Si superamos los 30 km, este grupo es elegible
@@ -965,13 +996,27 @@ class GPV_Database
                     $elegible->vehiculo_nombre = $mov->nombre_vehiculo;
                     $elegible->odometro_inicial = $acumulado[0]->odometro_salida;
                     $elegible->odometro_final = end($acumulado)->odometro_entrada;
-                    $elegible->fecha_inicial = date('Y-m-d', strtotime($acumulado[0]->hora_salida));
-                    $elegible->hora_inicial = date('H:i:s', strtotime($acumulado[0]->hora_salida));
-                    $elegible->fecha_final = date('Y-m-d', strtotime(end($acumulado)->hora_entrada));
-                    $elegible->hora_final = date('H:i:s', strtotime(end($acumulado)->hora_entrada));
+
+                    if (isset($acumulado[0]->hora_salida)) {
+                        $elegible->fecha_inicial = date('Y-m-d', strtotime($acumulado[0]->hora_salida));
+                        $elegible->hora_inicial = date('H:i:s', strtotime($acumulado[0]->hora_salida));
+                    } else {
+                        $elegible->fecha_inicial = $fecha_reporte;
+                        $elegible->hora_inicial = '00:00:00';
+                    }
+
+                    $ultimo_mov = end($acumulado);
+                    if (isset($ultimo_mov->hora_entrada)) {
+                        $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
+                        $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
+                    } else {
+                        $elegible->fecha_final = $fecha_reporte;
+                        $elegible->hora_final = '23:59:59';
+                    }
+
                     $elegible->distancia_total = $distancia_total;
-                    $elegible->conductor = end($acumulado)->conductor;
-                    $elegible->conductor_id = end($acumulado)->conductor_id;
+                    $elegible->conductor = isset($ultimo_mov->conductor) ? $ultimo_mov->conductor : '';
+                    $elegible->conductor_id = isset($ultimo_mov->conductor_id) ? $ultimo_mov->conductor_id : 0;
 
                     $elegibles[] = $elegible;
 
@@ -985,10 +1030,14 @@ class GPV_Database
             // verificar si han pasado más de 7 días desde el primer movimiento
             if (!empty($acumulado)) {
                 $primer_mov = $acumulado[0];
-                $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
+                $dias_pasados = 0;
 
-                if ($dias_pasados > 7) {
-                    // Ha pasado más de una semana, incluirlo aunque no supere 30 km
+                if (isset($primer_mov->hora_salida)) {
+                    $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
+                }
+
+                if ($dias_pasados > 7 || count($acumulado) >= 3) {
+                    // Ha pasado más de una semana o hay al menos 3 movimientos, incluirlo aunque no supere 30 km
                     $ultimo_mov = end($acumulado);
 
                     $elegible = new stdClass();
@@ -1000,13 +1049,26 @@ class GPV_Database
                     $elegible->vehiculo_nombre = $primer_mov->nombre_vehiculo;
                     $elegible->odometro_inicial = $primer_mov->odometro_salida;
                     $elegible->odometro_final = $ultimo_mov->odometro_entrada;
-                    $elegible->fecha_inicial = date('Y-m-d', strtotime($primer_mov->hora_salida));
-                    $elegible->hora_inicial = date('H:i:s', strtotime($primer_mov->hora_salida));
-                    $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
-                    $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
+
+                    if (isset($primer_mov->hora_salida)) {
+                        $elegible->fecha_inicial = date('Y-m-d', strtotime($primer_mov->hora_salida));
+                        $elegible->hora_inicial = date('H:i:s', strtotime($primer_mov->hora_salida));
+                    } else {
+                        $elegible->fecha_inicial = $fecha_reporte;
+                        $elegible->hora_inicial = '00:00:00';
+                    }
+
+                    if (isset($ultimo_mov->hora_entrada)) {
+                        $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
+                        $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
+                    } else {
+                        $elegible->fecha_final = $fecha_reporte;
+                        $elegible->hora_final = '23:59:59';
+                    }
+
                     $elegible->distancia_total = $distancia_total;
-                    $elegible->conductor = $ultimo_mov->conductor;
-                    $elegible->conductor_id = $ultimo_mov->conductor_id;
+                    $elegible->conductor = isset($ultimo_mov->conductor) ? $ultimo_mov->conductor : '';
+                    $elegible->conductor_id = isset($ultimo_mov->conductor_id) ? $ultimo_mov->conductor_id : 0;
 
                     $elegibles[] = $elegible;
                 }
@@ -1016,6 +1078,41 @@ class GPV_Database
         return $elegibles;
     }
 
+
+    /**
+     * Actualizar firmante autorizado
+     *
+     * @param int $id ID del firmante
+     * @param array $data Datos a actualizar
+     * @return int|false Número de filas actualizadas o false en caso de error
+     */
+    public function update_firmante($id, $data)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        return $this->wpdb->update(
+            $tabla,
+            $data,
+            ['id' => $id]
+        );
+    }
+
+    /**
+     * Eliminar firmante autorizado
+     *
+     * @param int $id ID del firmante
+     * @return int|false Número de filas eliminadas o false en caso de error
+     */
+    public function delete_firmante($id)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        return $this->wpdb->delete(
+            $tabla,
+            ['id' => $id],
+            ['%d']
+        );
+    }
 
     /**********************
      * MÉTODOS DE USUARIO
@@ -1323,6 +1420,11 @@ class GPV_Database
     {
         $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
 
+        // Comprobar si la tabla existe
+        if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
+            return array(); // Devolver array vacío si la tabla no existe
+        }
+
         $query = "SELECT * FROM $tabla";
 
         // Filtros
@@ -1353,6 +1455,17 @@ class GPV_Database
     public function insert_firmante($data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        // Comprobar si la tabla existe
+        if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
+            // Intentar crear la tabla
+            $this->update_database_structure();
+
+            // Verificar si se creó correctamente
+            if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
+                return false;
+            }
+        }
 
         // Valores por defecto
         $defaults = [
@@ -1479,5 +1592,81 @@ class GPV_Database
             ['%d', '%d'],
             ['%d']
         );
+    }
+    /**
+     * Actualizar la estructura de la base de datos manualmente
+     */
+    public function update_database_structure()
+    {
+        global $wpdb;
+        $charset_collate = $wpdb->get_charset_collate();
+
+        // Crear tabla de firmantes si no existe
+        $tabla_firmantes = $wpdb->prefix . 'gpv_firmantes_autorizados';
+
+        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_firmantes'") != $tabla_firmantes) {
+            $sql = "CREATE TABLE $tabla_firmantes (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            nombre varchar(100) NOT NULL,
+            cargo varchar(100) NOT NULL,
+            grado varchar(50) DEFAULT NULL,
+            numero_empleado varchar(20) DEFAULT NULL,
+            activo tinyint(1) DEFAULT 1,
+            notas text DEFAULT NULL,
+            fecha_creacion datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
+        ) $charset_collate;";
+
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            dbDelta($sql);
+        }
+
+        // Agregar columna reportado si no existe
+        $tabla_movimientos = $wpdb->prefix . 'gpv_movimientos';
+
+        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_movimientos LIKE 'reportado'") != 'reportado') {
+            $wpdb->query("ALTER TABLE $tabla_movimientos ADD COLUMN reportado tinyint(1) DEFAULT 0");
+        }
+
+        // Agregar columna reporte_id si no existe
+        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_movimientos LIKE 'reporte_id'") != 'reporte_id') {
+            $wpdb->query("ALTER TABLE $tabla_movimientos ADD COLUMN reporte_id mediumint(9) DEFAULT NULL");
+        }
+
+        // Crear tabla de reportes si no existe
+        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
+
+        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_reportes'") != $tabla_reportes) {
+            $sql = "CREATE TABLE $tabla_reportes (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            vehiculo_id mediumint(9) NOT NULL,
+            vehiculo_siglas varchar(20) NOT NULL,
+            vehiculo_nombre varchar(100) NOT NULL,
+            odometro_inicial float NOT NULL,
+            odometro_final float NOT NULL,
+            fecha_inicial date NOT NULL,
+            hora_inicial time NOT NULL,
+            fecha_final date NOT NULL,
+            hora_final time NOT NULL,
+            distancia_total float NOT NULL,
+            conductor_id int(11) NOT NULL,
+            conductor varchar(100) NOT NULL,
+            movimientos_incluidos text NOT NULL,
+            numero_mensaje varchar(50) DEFAULT NULL,
+            firmante_id mediumint(9) DEFAULT NULL,
+            fecha_reporte date NOT NULL,
+            estado varchar(20) DEFAULT 'pendiente',
+            archivo_pdf varchar(255) DEFAULT NULL,
+            notas text DEFAULT NULL,
+            creado_en datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY vehiculo_idx (vehiculo_id)
+        ) $charset_collate;";
+
+            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+            dbDelta($sql);
+        }
+
+        return true;
     }
 }
