@@ -910,12 +910,61 @@ class GPV_Database
             ['%d']
         );
     }
+
+    /**
+     * Actualizar el estado de un reporte y opcionalmente su archivo PDF
+     *
+     * @param int $reporte_id ID del reporte
+     * @param string $estado Nuevo estado del reporte
+     * @param string|null $archivo_pdf Nombre del archivo PDF generado (opcional)
+     * @return int|false Número de filas actualizadas o false en caso de error
+     */
+    public function update_reporte_estado($reporte_id, $estado, $archivo_pdf = null)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+
+        $data = [
+            'estado' => $estado
+        ];
+
+        if ($archivo_pdf) {
+            $data['archivo_pdf'] = $archivo_pdf;
+        }
+
+        return $this->wpdb->update(
+            $tabla,
+            $data,
+            ['id' => $reporte_id]
+        );
+    }
+
+    /**
+     * Obtener un reporte específico por ID
+     *
+     * @param int $reporte_id ID del reporte
+     * @return object|null Objeto con los datos del reporte o null si no existe
+     */
+    public function get_reporte($reporte_id)
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+
+        return $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT * FROM $tabla WHERE id = %d",
+                $reporte_id
+            )
+        );
+    }
+
+
+
     /**
      * Obtener movimientos elegibles para reporte
      *
      * @param string $fecha_reporte Fecha para el reporte
      * @return array Lista de movimientos elegibles
      */
+    // Modificación a includes/class-gpv-database.php
     public function get_movimientos_para_reporte($fecha_reporte)
     {
         $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
@@ -934,23 +983,23 @@ class GPV_Database
         // Construir la consulta según la disponibilidad de la columna
         if ($reportado_exists) {
             $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
-              FROM $tabla_movimientos m
-              JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
-              WHERE m.estado = 'completado'
-              AND m.reportado = 0
-              AND m.distancia_recorrida IS NOT NULL
-              ORDER BY v.id, m.hora_salida";
+            FROM $tabla_movimientos m
+            JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
+            WHERE m.estado = 'completado'
+            AND m.reportado = 0
+            AND m.distancia_recorrida IS NOT NULL
+            ORDER BY v.id, m.hora_salida";
         } else {
             // Consulta alternativa sin el filtro de reportado
             $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
-              FROM $tabla_movimientos m
-              JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
-              WHERE m.estado = 'completado'
-              AND m.distancia_recorrida IS NOT NULL
-              ORDER BY v.id, m.hora_salida";
+            FROM $tabla_movimientos m
+            JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
+            WHERE m.estado = 'completado'
+            AND m.distancia_recorrida IS NOT NULL
+            ORDER BY v.id, m.hora_salida";
         }
 
-        // Intentar ejecutar la consulta
+        // Ejecutar la consulta
         try {
             $movimientos = $this->wpdb->get_results($query);
         } catch (Exception $e) {
@@ -976,95 +1025,59 @@ class GPV_Database
         $elegibles = [];
 
         foreach ($por_vehiculo as $vehiculo_id => $movs) {
-            // Acumular movimientos hasta superar 30 km
+            // Acumular TODOS los movimientos del vehículo
             $acumulado = [];
             $distancia_total = 0;
+            $primer_mov = null;
+            $ultimo_mov = null;
 
             foreach ($movs as $mov) {
+                if (empty($primer_mov)) {
+                    $primer_mov = $mov;
+                }
+
+                $ultimo_mov = $mov;
                 $distancia_total += floatval($mov->distancia_recorrida);
                 $acumulado[] = $mov;
+            }
 
-                // Si superamos los 30 km, este grupo es elegible
-                if ($distancia_total >= 30) {
+            // Si hay movimientos acumulados, verificar si califican para reporte
+            if (!empty($acumulado)) {
+                // Criterios para incluir en el reporte:
+                // 1. Distancia total es de al menos 30 km O
+                // 2. Han pasado más de 7 días desde el primer movimiento O
+                // 3. Hay al menos 3 movimientos acumulados
+
+                $dias_pasados = 0;
+                if (isset($primer_mov->hora_salida)) {
+                    $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
+                }
+
+                if ($distancia_total >= 30 || $dias_pasados > 7 || count($acumulado) >= 3) {
                     // Crear objeto para el reporte
                     $elegible = new stdClass();
                     $elegible->id = implode(',', array_map(function ($m) {
                         return $m->id;
                     }, $acumulado));
                     $elegible->vehiculo_id = $vehiculo_id;
-                    $elegible->vehiculo_siglas = $mov->siglas;
-                    $elegible->vehiculo_nombre = $mov->nombre_vehiculo;
-                    $elegible->odometro_inicial = $acumulado[0]->odometro_salida;
-                    $elegible->odometro_final = end($acumulado)->odometro_entrada;
-
-                    if (isset($acumulado[0]->hora_salida)) {
-                        $elegible->fecha_inicial = date('Y-m-d', strtotime($acumulado[0]->hora_salida));
-                        $elegible->hora_inicial = date('H:i:s', strtotime($acumulado[0]->hora_salida));
-                    } else {
-                        $elegible->fecha_inicial = $fecha_reporte;
-                        $elegible->hora_inicial = '00:00:00';
-                    }
-
-                    $ultimo_mov = end($acumulado);
-                    if (isset($ultimo_mov->hora_entrada)) {
-                        $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
-                        $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
-                    } else {
-                        $elegible->fecha_final = $fecha_reporte;
-                        $elegible->hora_final = '23:59:59';
-                    }
-
-                    $elegible->distancia_total = $distancia_total;
-                    $elegible->conductor = isset($ultimo_mov->conductor) ? $ultimo_mov->conductor : '';
-                    $elegible->conductor_id = isset($ultimo_mov->conductor_id) ? $ultimo_mov->conductor_id : 0;
-
-                    $elegibles[] = $elegible;
-
-                    // Reiniciar acumulación
-                    $acumulado = [];
-                    $distancia_total = 0;
-                }
-            }
-
-            // Si quedan movimientos acumulados pero no superan 30 km,
-            // verificar si han pasado más de 7 días desde el primer movimiento
-            if (!empty($acumulado)) {
-                $primer_mov = $acumulado[0];
-                $dias_pasados = 0;
-
-                if (isset($primer_mov->hora_salida)) {
-                    $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
-                }
-
-                if ($dias_pasados > 7 || count($acumulado) >= 3) {
-                    // Ha pasado más de una semana o hay al menos 3 movimientos, incluirlo aunque no supere 30 km
-                    $ultimo_mov = end($acumulado);
-
-                    $elegible = new stdClass();
-                    $elegible->id = implode(',', array_map(function ($m) {
-                        return $m->id;
-                    }, $acumulado));
-                    $elegible->vehiculo_id = $vehiculo_id;
-                    $elegible->vehiculo_siglas = $primer_mov->siglas;
-                    $elegible->vehiculo_nombre = $primer_mov->nombre_vehiculo;
+                    $elegible->vehiculo_siglas = $ultimo_mov->siglas;
+                    $elegible->vehiculo_nombre = $ultimo_mov->nombre_vehiculo;
                     $elegible->odometro_inicial = $primer_mov->odometro_salida;
                     $elegible->odometro_final = $ultimo_mov->odometro_entrada;
 
-                    if (isset($primer_mov->hora_salida)) {
-                        $elegible->fecha_inicial = date('Y-m-d', strtotime($primer_mov->hora_salida));
-                        $elegible->hora_inicial = date('H:i:s', strtotime($primer_mov->hora_salida));
-                    } else {
-                        $elegible->fecha_inicial = $fecha_reporte;
-                        $elegible->hora_inicial = '00:00:00';
-                    }
+                    $elegible->fecha_inicial = isset($primer_mov->hora_salida)
+                        ? date('Y-m-d', strtotime($primer_mov->hora_salida))
+                        : $fecha_reporte;
+                    $elegible->hora_inicial = isset($primer_mov->hora_salida)
+                        ? date('H:i:s', strtotime($primer_mov->hora_salida))
+                        : '00:00:00';
 
-                    if (isset($ultimo_mov->hora_entrada)) {
-                        $elegible->fecha_final = date('Y-m-d', strtotime($ultimo_mov->hora_entrada));
-                        $elegible->hora_final = date('H:i:s', strtotime($ultimo_mov->hora_entrada));
-                    } else {
-                        $elegible->fecha_final = $fecha_reporte;
-                        $elegible->hora_final = '23:59:59';
-                    }
+                    $elegible->fecha_final = isset($ultimo_mov->hora_entrada)
+                        ? date('Y-m-d', strtotime($ultimo_mov->hora_entrada))
+                        : $fecha_reporte;
+                    $elegible->hora_final = isset($ultimo_mov->hora_entrada)
+                        ? date('H:i:s', strtotime($ultimo_mov->hora_entrada))
+                        : '23:59:59';
 
                     $elegible->distancia_total = $distancia_total;
                     $elegible->conductor = isset($ultimo_mov->conductor) ? $ultimo_mov->conductor : '';
@@ -1600,6 +1613,15 @@ class GPV_Database
     {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
+
+        // Verificar si existe la columna firmante2_id en la tabla de reportes
+        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
+
+        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_reportes'") == $tabla_reportes) {
+            if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'firmante2_id'") != 'firmante2_id') {
+                $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN firmante2_id mediumint(9) DEFAULT NULL");
+            }
+        }
 
         // Crear tabla de firmantes si no existe
         $tabla_firmantes = $wpdb->prefix . 'gpv_firmantes_autorizados';

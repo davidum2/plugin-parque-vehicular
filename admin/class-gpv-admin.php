@@ -299,6 +299,7 @@ class GPV_Admin
     {
         global $GPV_Database;
 
+
         // Guardar cambios si se envió el formulario
         if (isset($_POST['gpv_save_settings']) && isset($_POST['gpv_nonce']) && wp_verify_nonce($_POST['gpv_nonce'], 'gpv_save_settings')) {
             // Procesar cada configuración
