@@ -101,7 +101,7 @@ class GPV_Report_PDF extends TCPDF
     }
 
     /**
-     * Generar el reporte en PDF
+     * Método para generar el reporte en PDF
      */
     public function generate_report($reporte_id)
     {
@@ -121,6 +121,15 @@ class GPV_Report_PDF extends TCPDF
             $firmantes = $this->database->get_firmantes(['id' => $reporte->firmante_id]);
             if (!empty($firmantes)) {
                 $firmante = $firmantes[0];
+            }
+        }
+
+        // Obtener datos del firmante secundario
+        $firmante2 = null;
+        if (isset($reporte->firmante2_id) && $reporte->firmante2_id) {
+            $firmantes2 = $this->database->get_firmantes(['id' => $reporte->firmante2_id]);
+            if (!empty($firmantes2)) {
+                $firmante2 = $firmantes2[0];
             }
         }
 
@@ -163,6 +172,11 @@ class GPV_Report_PDF extends TCPDF
         $this->Cell(60, 8, 'Distancia total:', 0, 0, 'L');
         $this->Cell(0, 8, number_format($reporte->distancia_total, 2) . ' km', 0, 1, 'L');
 
+        // Mostrar propósito si existe
+        if (isset($reporte->proposito) && !empty($reporte->proposito)) {
+            $this->Cell(60, 8, 'Propósito:', 0, 0, 'L');
+            $this->Cell(0, 8, $reporte->proposito, 0, 1, 'L');
+        }
 
         // Detalles de movimientos incluidos
         $this->Ln(5);
@@ -204,8 +218,9 @@ class GPV_Report_PDF extends TCPDF
                 $this->Cell(25, 6, number_format($movimiento->odometro_entrada, 2), 1, 0, 'C');
                 $this->Cell(25, 6, number_format($movimiento->distancia_recorrida, 2) . ' km', 1, 0, 'C');
 
+                // Mostrar propósito del movimiento
+                $proposito = isset($movimiento->proposito) ? $movimiento->proposito : '';
                 // Recortar propósito si es muy largo
-                $proposito = $movimiento->proposito;
                 if (strlen($proposito) > 30) {
                     $proposito = substr($proposito, 0, 27) . '...';
                 }
@@ -224,6 +239,14 @@ class GPV_Report_PDF extends TCPDF
         $this->Cell(80, 8, $firmante ? $firmante->nombre : 'Firma Autorizada', 0, 1, 'C');
         $this->Cell(80, 8, 'Conductor', 0, 0, 'C');
         $this->Cell(80, 8, $firmante ? $firmante->cargo : '', 0, 1, 'C');
+
+        // Añadir segunda firma si existe
+        if ($firmante2) {
+            $this->Ln(15);
+            $this->Cell(0, 8, '____________________________', 0, 1, 'C');
+            $this->Cell(0, 8, $firmante2->nombre, 0, 1, 'C');
+            $this->Cell(0, 8, $firmante2->cargo, 0, 1, 'C');
+        }
 
         // Crear directorio para PDFs si no existe
         $upload_dir = wp_upload_dir();

@@ -1,601 +1,532 @@
 <?php
-// admin/class-gpv-admin.php
 
-if (! defined('ABSPATH')) {
+/**
+ * class-gpv-admin.php
+ *
+ * Clase principal para la gestión del panel de administración del plugin Gestión Parque Vehicular (GPV).
+ *
+ * Esta clase se encarga de configurar el menú de administración, gestionar las vistas del panel,
+ * y procesar las acciones relacionadas con la administración del plugin, como la generación y
+ * descarga de reportes, la gestión de la configuración, etc.
+ *
+ * @package GestionParqueVehicular
+ */
+
+if (!defined('ABSPATH')) {
     exit; // Salir si se accede directamente.
 }
 
-/**
- * Clase para gestionar el panel de administración
- */
 class GPV_Admin
 {
+    /**
+     * @var string SLUG_MENU_PRINCIPAL Slug para el menú principal del plugin.
+     */
+    const SLUG_MENU_PRINCIPAL = 'gpv_menu';
 
     /**
-     * Constructor
+     * @var string NONCE_ACTION_DELETE_REPORTE Acción nonce para eliminar reportes.
+     */
+    const NONCE_ACTION_DELETE_REPORTE = 'delete_reporte_';
+
+    /**
+     * @var string NONCE_ACTION_GENERATE_REPORTE Acción nonce para generar reportes.
+     */
+    const NONCE_ACTION_GENERATE_REPORTE = 'gpv_generate_report';
+
+    /**
+     * @var string NONCE_ACTION_DOWNLOAD_REPORTE Acción nonce para descargar reportes.
+     */
+    const NONCE_ACTION_DOWNLOAD_REPORTE = 'gpv_download_report';
+
+    /**
+     * @var string NONCE_ACTION_CEI_REPORTE Acción nonce para generar reportes CEI.
+     */
+    const NONCE_ACTION_CEI_REPORTE = 'gpv_cei_report';
+
+    /**
+     * @var string NONCE_NOMBRE_REPORTE Nombre del nonce para reportes.
+     */
+    const NONCE_NOMBRE_REPORTE = 'gpv_report_nonce';
+
+    /**
+     * @var string NONCE_NOMBRE_CEI_REPORTE Nombre del nonce para reportes CEI.
+     */
+    const NONCE_NOMBRE_CEI_REPORTE = 'gpv_cei_report_nonce';
+
+    /**
+     * @var string NONCE_ACTION_UPDATE_DB Acción nonce para actualizar la base de datos.
+     */
+    const NONCE_ACTION_UPDATE_DB = 'gpv_update_db';
+
+    /**
+     * @var string NONCE_NOMBRE_UPDATE_DB Nombre del nonce para actualizar la base de datos.
+     */
+    const NONCE_NOMBRE_UPDATE_DB = 'gpv_update_db_nonce';
+
+    /**
+     * Constructor de la clase GPV_Admin.
+     *
+     * Inicializa la clase, incluye los archivos de vista, define las acciones para el menú de administración,
+     * y encola los assets (estilos y scripts) necesarios para el panel de administración.
      */
     public function __construct()
     {
-        // Incluir archivos de vistas
-        $this->include_view_files();
-        // Al inicio de la función generate_movement_report()
-        global $GPV_Database;
-        $GPV_Database->update_database_structure();
-        // Agregar menú en el panel de administración
-        add_action('admin_menu', array($this, 'gpv_agregar_menu_admin'));
+        $this->include_view_files(); // Incluir archivos de vistas
+
+        add_action('admin_menu', array($this, 'agregar_menu_admin')); // Agregar menú en el panel de administración
+
+        // Define las acciones para procesar formularios y descargas
         add_action('admin_post_gpv_generate_hello_world', array($this, 'generate_hello_world_pdf'));
         add_action('admin_post_gpv_generate_cei_report', array($this, 'generate_cei_report'));
         add_action('admin_post_gpv_generate_movement_report', array($this, 'generate_movement_report'));
         add_action('admin_post_gpv_download_movement_report', array($this, 'download_movement_report'));
         add_action('admin_post_gpv_delete_movement_report', array($this, 'delete_movement_report'));
 
-        // Agregar estilos y scripts
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets'));
-    }
-    /**
-     * Método para eliminar un reporte
-     */
-    public function delete_movement_report()
-    {
-        // Verificar nonce
-        if (!isset($_REQUEST['_wpnonce']) || !wp_verify_nonce($_REQUEST['_wpnonce'], 'delete_reporte_' . $_GET['id'])) {
-            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
-        }
-
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
-        }
-
-        // Obtener ID del reporte
-        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-        if (!$report_id) {
-            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
-        }
-
-        global $GPV_Database;
-        $reporte = $GPV_Database->get_reporte($report_id);
-
-        if (!$reporte) {
-            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=not_found'));
-            exit;
-        }
-
-        // Eliminar archivo PDF si existe
-        if (!empty($reporte->archivo_pdf)) {
-            $upload_dir = wp_upload_dir();
-            $pdf_path = $upload_dir['basedir'] . '/gpv-reportes/' . $reporte->archivo_pdf;
-
-            if (file_exists($pdf_path)) {
-                @unlink($pdf_path);
-            }
-        }
-
-        // Desmarcar movimientos incluidos
-        $movimiento_ids = explode(',', $reporte->movimientos_incluidos);
-        foreach ($movimiento_ids as $movimiento_id) {
-            $GPV_Database->desmarcar_movimiento_reportado($movimiento_id);
-        }
-
-        // Eliminar reporte
-        $result = $GPV_Database->delete_reporte($report_id);
-
-        // Redirigir con mensaje
-        if ($result) {
-            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=deleted'));
-        } else {
-            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=delete_error'));
-        }
-        exit;
-    }
-    /**
-     * Método para generar el reporte de movimientos en PDF
-     */
-    public function generate_movement_report()
-    {
-        // Verificar nonce
-        if (!isset($_REQUEST['gpv_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_report_nonce'], 'gpv_generate_report')) {
-            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
-        }
-
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
-        }
-
-        // Obtener ID del reporte
-        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-        if (!$report_id) {
-            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
-        }
-
-        // Incluir la clase del reporte
-        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-report-pdf.php';
-
-        // Crear instancia y generar PDF
-        $report = new GPV_Report_PDF();
-        $filepath = $report->generate_report($report_id);
-
-        if ($filepath) {
-            // Redirigir de vuelta con un mensaje de éxito
-            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=pdf_generated&id=' . $report_id));
-        } else {
-            // Redirigir con mensaje de error
-            wp_redirect(admin_url('admin.php?page=gpv_reportes&message=pdf_error&id=' . $report_id));
-        }
-        exit;
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_assets')); // Encolar estilos y scripts para admin
     }
 
     /**
-     * Incluir archivos de vistas
+     * Incluye todos los archivos de vista necesarios para el panel de administración.
+     *
+     * Organiza y carga los archivos PHP que contienen la estructura HTML y la lógica de presentación
+     * para las diferentes secciones del panel de administración del plugin.
+     *
+     * @access private
+     * @return void
      */
     private function include_view_files()
     {
         require_once plugin_dir_path(__FILE__) . 'views/vehiculos-listado.php';
         require_once plugin_dir_path(__FILE__) . 'views/movimientos-listado.php';
         require_once plugin_dir_path(__FILE__) . 'views/cargas-listado.php';
+        require_once plugin_dir_path(__FILE__) . 'views/reportes-listado.php';
+        require_once plugin_dir_path(__FILE__) . 'views/reportes-nuevo.php';
+        require_once plugin_dir_path(__FILE__) . 'views/reportes-editar.php';
+        require_once plugin_dir_path(__FILE__) . 'views/reportes-firmantes.php';
+        require_once plugin_dir_path(__FILE__) . 'views/cei-report-view.php';
+        require_once plugin_dir_path(__FILE__) . 'views/configuracion.php'; // Añadimos la inclusión del nuevo archivo
     }
+
     /**
-     * Método para descargar un reporte en PDF
+     * Encola los estilos CSS y scripts JavaScript necesarios para el panel de administración.
+     *
+     * Este método se asegura de que los archivos de assets del panel de administración solo se carguen
+     * en las páginas correspondientes del plugin, optimizando el rendimiento y evitando conflictos.
+     *
+     * @access public
+     * @action admin_enqueue_scripts
+     * @return void
      */
-    public function download_movement_report()
+    public function enqueue_admin_assets()
     {
-        // Verificar nonce
-        if (!isset($_REQUEST['gpv_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_report_nonce'], 'gpv_download_report')) {
-            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        $current_screen = get_current_screen(); // Obtiene la pantalla actual de WordPress
+
+        // Carga assets solo en las páginas del plugin (identificadas por el prefijo 'gpv_')
+        if (strpos($current_screen->id, 'gpv_') === false) {
+            return; // Sale de la función si no es una página del plugin
         }
 
-        // Verificar permisos
+        // Encola hoja de estilos CSS para el admin panel
+        wp_enqueue_style(
+            'gpv-admin-styles',
+            plugin_dir_url(__FILE__) . '../assets/css/admin.css',
+            array(), // Sin dependencias
+            GPV_VERSION // Usa la versión del plugin para el control de caché
+        );
+
+        // Encola script JavaScript para funcionalidades del admin panel
+        wp_enqueue_script(
+            'gpv-admin-scripts',
+            plugin_dir_url(__FILE__) . '../assets/js/admin-app.js',
+            array('jquery'), // Dependencia de jQuery
+            GPV_VERSION, // Usa la versión del plugin para el control de caché
+            true // Cargar en el footer
+        );
+
+        // Localiza el script 'gpv-admin-scripts' para pasar datos de PHP a JavaScript
+        wp_localize_script(
+            'gpv-admin-scripts',
+            'gpvAdminData',
+            array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce'    => wp_create_nonce('gpv-admin-nonce'), // Genera un nonce para seguridad en AJAX
+                'root'     => esc_url_raw(rest_url()), // URL base para la API REST
+            )
+        );
+    }
+
+    /**
+     * Agrega el menú principal y submenús del plugin al panel de administración de WordPress.
+     *
+     * Define la estructura del menú de GPV, incluyendo el menú principal y sus submenús
+     * para cada sección del plugin (Panel Principal, Vehículos, Reportes, Movimientos, Cargas, Configuración, Reporte CEI).
+     *
+     * @access public
+     * @action admin_menu
+     * @return void
+     */
+    public function agregar_menu_admin()
+    {
+        $menu_capability = 'manage_options'; // Capacidad requerida para ver el menú de GPV
+
+        // Menu Principal
+        add_menu_page(
+            __('Parque Vehicular', 'gestion-parque-vehicular'),
+            __('Parque Vehicular', 'gestion-parque-vehicular'),
+            $menu_capability,
+            self::SLUG_MENU_PRINCIPAL,
+            array($this, 'gpv_pagina_principal'),
+            'dashicons-car',
+            6
+        );
+
+        // Submenús - Panel Principal (mismo slug que el principal para que sea el index)
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Panel Principal', 'gestion-parque-vehicular'),
+            __('Panel Principal', 'gestion-parque-vehicular'),
+            $menu_capability,
+            self::SLUG_MENU_PRINCIPAL,
+            array($this, 'gpv_pagina_principal')
+        );
+
+        // Submenú - Vehículos
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Vehículos', 'gestion-parque-vehicular'),
+            __('Vehículos', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_vehiculos',
+            'gpv_listado_vehiculos' // Función de la vista vehiculos-listado.php
+        );
+
+        // Submenú - Reportes de Movimientos
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Reportes de Movimientos', 'gestion-parque-vehicular'),
+            __('Reportes', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_reportes',
+            array($this, 'gpv_pagina_reportes')
+        );
+
+        // Submenú - Movimientos Diarios
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Movimientos Diarios', 'gestion-parque-vehicular'),
+            __('Movimientos Diarios', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_movimientos',
+            'gpv_listado_movimientos' // Función de la vista movimientos-listado.php
+        );
+
+        // Submenú - Cargas de Combustible
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Cargas de Combustible', 'gestion-parque-vehicular'),
+            __('Cargas de Combustible', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_cargas',
+            'gpv_listado_cargas' // Función de la vista cargas-listado.php
+        );
+
+        // Submenú - Configuración
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Configuración', 'gestion-parque-vehicular'),
+            __('Configuración', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_configuracion',
+            array($this, 'gpv_pagina_configuracion')
+        );
+
+        // Submenú - Reporte C.E.I.
+        add_submenu_page(
+            self::SLUG_MENU_PRINCIPAL,
+            __('Reporte C.E.I.', 'gestion-parque-vehicular'),
+            __('Reporte C.E.I.', 'gestion-parque-vehicular'),
+            $menu_capability,
+            'gpv_cei_report',
+            array($this, 'gpv_pagina_cei_report')
+        );
+    }
+
+    /**
+     * Muestra la página principal del plugin en el panel de administración.
+     *
+     * Renderiza la vista principal del dashboard del plugin GPV, mostrando un resumen estadístico
+     * y enlaces rápidos a las secciones principales del plugin.
+     *
+     * @access public
+     * @return void
+     */
+    public function gpv_pagina_principal()
+    {
+        require_once GPV_PLUGIN_DIR . 'admin/views/pagina-principal.php'; // Incluye la vista principal del admin
+        gpv_pagina_principal_view(); // Llama a la función que renderiza la vista (definida en el archivo incluido)
+    }
+
+    /**
+     * Muestra la página de configuración del plugin.
+     *
+     * Renderiza el formulario de configuración del plugin, permitiendo al usuario modificar
+     * las opciones generales del plugin GPV y gestionarlas a través de la base de datos.
+     *
+     * @access public
+     * @return void
+     */
+    public function gpv_pagina_configuracion()
+    {
+        require_once GPV_PLUGIN_DIR . 'admin/views/configuracion.php'; // Incluye la vista de configuración
+        gpv_configuracion_view(); // Llama a la función que renderiza la vista (definida en el archivo incluido)
+    }
+
+    /**
+     * Muestra la página de reportes C.E.I.
+     *
+     * Renderiza la vista para generar reportes de Consumo Especifico de Inflamable (CEI),
+     * permitiendo a los usuarios generar informes específicos para el control de combustible.
+     *
+     * @access public
+     * @return void
+     */
+    public function gpv_pagina_cei_report()
+    {
+        require_once GPV_PLUGIN_DIR . 'admin/views/cei-report-view.php'; // Incluye la vista del reporte CEI
+        gpv_cei_report_view(); // Llama a la función que renderiza la vista (definida en el archivo incluido)
+    }
+
+    /**
+     * Muestra la página de listado de reportes de movimientos.
+     *
+     * Gestiona la visualización de la página que lista los reportes de movimientos, permitiendo
+     * seleccionar entre la lista de reportes o las opciones para crear, editar o gestionar firmantes.
+     *
+     * @access public
+     * @return void
+     */
+    public function gpv_pagina_reportes()
+    {
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : 'list'; // Obtiene la acción desde la URL, 'list' por defecto
+
+        switch ($action) {
+            case 'new': // Vista para crear un nuevo reporte
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
+                gpv_reportes_nuevo_view();
+                break;
+            case 'edit': // Vista para editar un reporte existente
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
+                gpv_reportes_editar_view();
+                break;
+            case 'firmantes': // Vista para gestionar firmantes autorizados
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
+                gpv_reportes_firmantes_view();
+                break;
+            default: // Vista por defecto: listado de reportes
+                require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
+                gpv_reportes_listado_view();
+                break;
+        }
+    }
+
+    /**
+     * Procesa la eliminación de un reporte de movimiento.
+     *
+     * Valida los permisos del usuario, verifica el nonce de seguridad, y procede a eliminar el reporte
+     * y su archivo PDF asociado (si existe), además de desmarcar los movimientos que incluía.
+     * Redirige al usuario de vuelta a la página de reportes con un mensaje de estado.
+     *
+     * @access public
+     * @action admin_post_gpv_delete_movement_report
+     * @return void
+     */
+    public function delete_movement_report()
+    {
+        // --- Seguridad y Validaciones ---
+        $nonce_action = self::NONCE_ACTION_DELETE_REPORTE . $_GET['id']; // Nonce específico para cada reporte
+        if (!isset($_REQUEST['_wpnonce']) || !wp_verify_nonce($_REQUEST['_wpnonce'], $nonce_action)) {
+            wp_die(__('Error de seguridad: Nonce verification failed.', 'gestion-parque-vehicular'));
+        }
+
         if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+            wp_die(__('Permisos insuficientes.', 'gestion-parque-vehicular'));
         }
 
-        // Obtener ID del reporte
-        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0; // Obtiene y sanitiza el ID del reporte
         if (!$report_id) {
-            wp_die(__('ID de reporte no válido.', 'gestion-parque-vehicular'));
+            wp_die(__('ID de reporte inválido.', 'gestion-parque-vehicular'));
         }
 
         global $GPV_Database;
-        $reporte = $GPV_Database->get_reporte($report_id);
+        $reporte = $GPV_Database->obtener_reporte($report_id); // Obtiene los datos del reporte
+        if (!$reporte) {
+            $this->redirect_con_mensaje('gpv_reportes', 'not_found'); // Redirige si no se encuentra el reporte
+            return;
+        }
+
+        // --- Eliminar Archivo PDF (si existe) ---
+        if (!empty($reporte->archivo_pdf)) {
+            $upload_dir = wp_upload_dir();
+            $pdf_path = $upload_dir['basedir'] . '/gpv-reportes/' . $reporte->archivo_pdf;
+            if (file_exists($pdf_path)) {
+                @unlink($pdf_path); // Intenta eliminar el archivo, ignora errores
+            }
+        }
+
+        // --- Desmarcar Movimientos Reportados ---
+        $movimiento_ids = explode(',', $reporte->movimientos_incluidos);
+        foreach ($movimiento_ids as $movimiento_id) {
+            $GPV_Database->desmarcar_movimiento_reportado($movimiento_id); // Reestablece el estado de los movimientos
+        }
+
+        // --- Eliminar Reporte de la Base de Datos ---
+        $delete_result = $GPV_Database->eliminar_reporte($report_id);
+
+        // --- Redirección con Mensaje de Estado ---
+        $message_type = $delete_result ? 'deleted' : 'delete_error'; // Define el tipo de mensaje según el resultado
+        $this->redirect_con_mensaje('gpv_reportes', $message_type);
+    }
+
+    /**
+     * Procesa la generación del reporte de movimientos en formato PDF.
+     *
+     * Verifica los permisos, el nonce, y el ID del reporte, luego utiliza la clase GPV_Report_PDF
+     * para generar el archivo PDF. Redirige de vuelta a la página de reportes con un mensaje de éxito o error.
+     *
+     * @access public
+     * @action admin_post_gpv_generate_movement_report
+     * @return void
+     */
+    public function generate_movement_report()
+    {
+        // --- Seguridad y Validaciones ---
+        if (!isset($_REQUEST[self::NONCE_NOMBRE_REPORTE]) || !wp_verify_nonce($_REQUEST[self::NONCE_NOMBRE_REPORTE], self::NONCE_ACTION_GENERATE_REPORTE)) {
+            wp_die(__('Error de seguridad: Nonce verification failed.', 'gestion-parque-vehicular'));
+        }
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Permisos insuficientes.', 'gestion-parque-vehicular'));
+        }
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0; // Obtiene y sanitiza el ID del reporte
+        if (!$report_id) {
+            wp_die(__('ID de reporte inválido.', 'gestion-parque-vehicular'));
+        }
+
+        // --- Incluir Clase y Generar PDF ---
+        require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-report-pdf.php';
+        $report_pdf = new GPV_Report_PDF();
+        $pdf_filepath = $report_pdf->generate_report($report_id); // Genera el PDF
+
+        // --- Redirección con Mensaje de Estado ---
+        $message_type = $pdf_filepath ? 'pdf_generated' : 'pdf_error'; // Define el tipo de mensaje según el resultado
+        $this->redirect_con_mensaje('gpv_reportes', $message_type, $report_id);
+    }
+
+
+    /**
+     * Procesa la solicitud de descarga de un reporte de movimiento en PDF.
+     *
+     * Verifica los permisos, nonce, y la existencia del reporte y su archivo PDF,
+     * luego fuerza la descarga del archivo PDF al navegador del usuario.
+     *
+     * @access public
+     * @action admin_post_gpv_download_movement_report
+     * @return void
+     */
+    public function download_movement_report()
+    {
+        // --- Seguridad y Validaciones ---
+        if (!isset($_REQUEST[self::NONCE_NOMBRE_REPORTE]) || !wp_verify_nonce($_REQUEST[self::NONCE_NOMBRE_REPORTE], self::NONCE_ACTION_DOWNLOAD_REPORTE)) {
+            wp_die(__('Error de seguridad: Nonce verification failed.', 'gestion-parque-vehicular'));
+        }
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Permisos insuficientes.', 'gestion-parque-vehicular'));
+        }
+        $report_id = isset($_GET['id']) ? intval($_GET['id']) : 0; // Obtiene y sanitiza el ID del reporte
+        if (!$report_id) {
+            wp_die(__('ID de reporte inválido.', 'gestion-parque-vehicular'));
+        }
+
+        global $GPV_Database;
+        $reporte = $GPV_Database->obtener_reporte($report_id); // Obtiene los datos del reporte
 
         if (!$reporte || empty($reporte->archivo_pdf)) {
-            wp_die(__('El archivo PDF no existe o no está disponible.', 'gestion-parque-vehicular'));
+            wp_die(__('Archivo PDF no encontrado.', 'gestion-parque-vehicular'));
         }
 
         $upload_dir = wp_upload_dir();
         $pdf_path = $upload_dir['basedir'] . '/gpv-reportes/' . $reporte->archivo_pdf;
 
         if (!file_exists($pdf_path)) {
-            wp_die(__('El archivo PDF no se encuentra en el servidor.', 'gestion-parque-vehicular'));
+            wp_die(__('Archivo PDF no encontrado en el servidor.', 'gestion-parque-vehicular'));
         }
 
-        // Forzar descarga del archivo
+        // --- Forzar Descarga del Archivo PDF ---
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . basename($pdf_path) . '"');
         header('Content-Length: ' . filesize($pdf_path));
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
-        ob_clean();
-        flush();
-        readfile($pdf_path);
-        exit;
-    }
-    /**
-     * Cargar estilos y scripts de administración
-     */
-    public function enqueue_admin_assets()
-    {
-        // Solo cargar en las páginas del plugin
-        $screen = get_current_screen();
-        if (strpos($screen->id, 'gpv_') === false) {
-            return;
-        }
-
-        // Cargar estilos
-        wp_enqueue_style(
-            'gpv-admin-styles',
-            plugin_dir_url(__FILE__) . '../assets/css/admin.css',
-            array(),
-            GPV_VERSION
-        );
-
-        // Cargar scripts
-        wp_enqueue_script(
-            'gpv-admin-scripts',
-            plugin_dir_url(__FILE__) . '../assets/js/admin-app.js',
-            array('jquery'),
-            GPV_VERSION,
-            true
-        );
-
-        // Pasar datos al script
-        wp_localize_script(
-            'gpv-admin-scripts',
-            'gpvAdminData',
-            array(
-                'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce' => wp_create_nonce('gpv-admin-nonce'),
-                'root' => esc_url_raw(rest_url()),
-            )
-        );
-    }
-
-    /**
-     * Agrega el menú principal y submenús del plugin en el panel de administración.
-     */
-    public function gpv_agregar_menu_admin()
-    {
-        add_menu_page(
-            __('Parque Vehicular', 'gestion-parque-vehicular'), // Título del menú
-            __('Parque Vehicular', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_menu', // Slug del menú
-            array($this, 'gpv_pagina_principal'), // Función para mostrar la página principal
-            'dashicons-car', // Icono del menú
-            6 // Posición del menú
-        );
-
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Panel Principal', 'gestion-parque-vehicular'), // Título del submenú
-            __('Panel Principal', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_menu', // Slug del submenú (igual al padre para el primer submenú)
-            array($this, 'gpv_pagina_principal') // Función para mostrar la página principal
-        );
-
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Vehículos', 'gestion-parque-vehicular'), // Título del submenú
-            __('Vehículos', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_vehiculos', // Slug del submenú
-            'gpv_listado_vehiculos' // Función para mostrar el listado de vehículos
-        );
-
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Reportes de Movimientos', 'gestion-parque-vehicular'), // Título
-            __('Reportes', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_reportes', // Slug del submenú
-            array($this, 'gpv_pagina_reportes') // Función para mostrar la página
-        );
-
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Movimientos Diarios', 'gestion-parque-vehicular'), // Título del submenú
-            __('Movimientos Diarios', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_movimientos', // Slug del submenú
-            'gpv_listado_movimientos' // Función para mostrar el listado de movimientos
-        );
-
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Cargas de Combustible', 'gestion-parque-vehicular'), // Título del submenú
-            __('Cargas de Combustible', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_cargas', // Slug del submenú
-            'gpv_listado_cargas' // Función para mostrar el listado de cargas
-        );
-
-        // Agregar submenú de configuración
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Configuración', 'gestion-parque-vehicular'), // Título del submenú
-            __('Configuración', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_configuracion', // Slug del submenú
-            array($this, 'gpv_pagina_configuracion') // Función para mostrar configuración
-        );
-        add_submenu_page(
-            'gpv_menu', // Slug del menú padre
-            __('Reporte C.E.I.', 'gestion-parque-vehicular'), // Título del submenú
-            __('Reporte C.E.I.', 'gestion-parque-vehicular'), // Título a mostrar
-            'manage_options', // Capacidad necesaria
-            'gpv_cei_report', // Slug del submenú
-            array($this, 'gpv_pagina_cei_report') // Función para mostrar la página
-        );
-    }
-
-    /**
-     * Método para mostrar la página de reportes C.E.I.
-     */
-    public function gpv_pagina_cei_report()
-    {
-        // Incluir archivo de vista
-        require_once GPV_PLUGIN_DIR . 'admin/views/cei-report-view.php';
-        gpv_cei_report_view();
-    }
-
-    /**
-     * Muestra la página de reportes de movimientos
-     */
-    public function gpv_pagina_reportes()
-    {
-        // Verificamos qué acción queremos realizar
-        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : 'list';
-
-        switch ($action) {
-            case 'new':
-                // Página para crear nuevo reporte
-                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php')) {
-                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-nuevo.php';
-                } else {
-                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
-                }
-                break;
-            case 'edit':
-                // Página para editar reporte
-                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php')) {
-                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-editar.php';
-                } else {
-                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
-                }
-                break;
-            case 'firmantes':
-                // Página para gestionar firmantes
-                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php')) {
-                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-firmantes.php';
-                } else {
-                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista de firmantes no encontrado', 'gestion-parque-vehicular') . '</p></div>';
-                    // Fallback
-                    echo '<div class="wrap"><h1>' . __('Gestionar Firmantes', 'gestion-parque-vehicular') . '</h1>';
-                    echo '<p>' . __('La funcionalidad de gestión de firmantes no está disponible en este momento.', 'gestion-parque-vehicular') . '</p>';
-                    echo '<a href="' . esc_url(admin_url('admin.php?page=gpv_reportes')) . '" class="button">' . __('Volver a Reportes', 'gestion-parque-vehicular') . '</a>';
-                    echo '</div>';
-                }
-                break;
-            default:
-                // Listado de reportes (vista por defecto)
-                if (file_exists(GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php')) {
-                    require_once GPV_PLUGIN_DIR . 'admin/views/reportes-listado.php';
-                } else {
-                    echo '<div class="notice notice-error"><p>' . __('Error: Archivo de vista no encontrado', 'gestion-parque-vehicular') . '</p></div>';
-                }
-                break;
-        }
-    }
-    /**
-     * Muestra la página principal del plugin en el panel de administración.
-     */
-    public function gpv_pagina_principal()
-    {
-        echo '<div class="wrap gpv-admin-page">';
-        echo '<h2>' . esc_html__('Gestión de Parque Vehicular', 'gestion-parque-vehicular') . '</h2>';
-        echo '<p>' . esc_html__('Bienvenido al panel de administración del Parque Vehicular.', 'gestion-parque-vehicular') . '</p>';
-
-        // Obtener datos estadísticos
-        global $GPV_Database;
-        $stats = $GPV_Database->get_dashboard_stats();
-
-        // Mostrar resumen de datos
-        echo '<div class="gpv-dashboard-widgets">';
-
-        // Widget de vehículos
-        echo '<div class="gpv-dashboard-widget">';
-        echo '<h3>' . esc_html__('Vehículos', 'gestion-parque-vehicular') . '</h3>';
-        echo '<div class="gpv-widget-content">';
-        echo '<div class="gpv-stat-card">';
-        echo '<div class="gpv-stat-icon"><span class="dashicons dashicons-car"></span></div>';
-        echo '<div class="gpv-stat-details">';
-        echo '<h4>' . esc_html($stats['vehicles']['total']) . '</h4>';
-        echo '<p>' . esc_html__('Total de vehículos', 'gestion-parque-vehicular') . '</p>';
-        echo '</div>';
-        echo '</div>';
-        echo '<p>' . esc_html__('Disponibles', 'gestion-parque-vehicular') . ': ' . esc_html($stats['vehicles']['available']) . '</p>';
-        echo '<p>' . esc_html__('En uso', 'gestion-parque-vehicular') . ': ' . esc_html($stats['vehicles']['in_use']) . '</p>';
-        echo '</div>';
-        echo '</div>';
-
-        // Widget de movimientos
-        echo '<div class="gpv-dashboard-widget">';
-        echo '<h3>' . esc_html__('Movimientos', 'gestion-parque-vehicular') . '</h3>';
-        echo '<div class="gpv-widget-content">';
-        echo '<div class="gpv-stat-card">';
-        echo '<div class="gpv-stat-icon"><span class="dashicons dashicons-location"></span></div>';
-        echo '<div class="gpv-stat-details">';
-        echo '<h4>' . esc_html($stats['movements']['today']) . '</h4>';
-        echo '<p>' . esc_html__('Movimientos hoy', 'gestion-parque-vehicular') . '</p>';
-        echo '</div>';
-        echo '</div>';
-        echo '<p>' . esc_html__('Este mes', 'gestion-parque-vehicular') . ': ' . esc_html($stats['movements']['month']) . '</p>';
-        echo '<p>' . esc_html__('Distancia total', 'gestion-parque-vehicular') . ': ' . esc_html(number_format($stats['movements']['total_distance'], 2)) . ' km</p>';
-        echo '<p>' . esc_html__('Movimientos activos', 'gestion-parque-vehicular') . ': ' . esc_html($stats['movements']['active']) . '</p>';
-        echo '</div>';
-        echo '</div>';
-
-        // Widget de combustible
-        echo '<div class="gpv-dashboard-widget">';
-        echo '<h3>' . esc_html__('Combustible', 'gestion-parque-vehicular') . '</h3>';
-        echo '<div class="gpv-widget-content">';
-        echo '<div class="gpv-stat-card">';
-        echo '<div class="gpv-stat-icon"><span class="dashicons dashicons-dashboard"></span></div>';
-        echo '<div class="gpv-stat-details">';
-        echo '<h4>' . esc_html(number_format($stats['fuel']['month_consumption'], 2)) . ' L</h4>';
-        echo '<p>' . esc_html__('Consumo mensual', 'gestion-parque-vehicular') . '</p>';
-        echo '</div>';
-        echo '</div>';
-        echo '<p>' . esc_html__('Consumo promedio', 'gestion-parque-vehicular') . ': ' . esc_html(number_format($stats['fuel']['average_consumption'], 2)) . ' km/L</p>';
-        echo '</div>';
-        echo '</div>';
-
-        echo '</div>'; // Fin dashboard widgets
-
-        // Enlaces rápidos
-        echo '<h3>' . esc_html__('Enlaces Rápidos', 'gestion-parque-vehicular') . '</h3>';
-        echo '<ul class="admin-links">';
-        echo '<li><a href="' . esc_url(admin_url('admin.php?page=gpv_vehiculos')) . '">' . esc_html__('Gestionar Vehículos', 'gestion-parque-vehicular') . '</a></li>';
-        echo '<li><a href="' . esc_url(admin_url('admin.php?page=gpv_movimientos')) . '">' . esc_html__('Ver Movimientos Diarios', 'gestion-parque-vehicular') . '</a></li>';
-        echo '<li><a href="' . esc_url(admin_url('admin.php?page=gpv_cargas')) . '">' . esc_html__('Ver Cargas de Combustible', 'gestion-parque-vehicular') . '</a></li>';
-        echo '</ul>';
-
-        echo '</div>'; // Fin wrap
-    }
-
-    /**
-     * Muestra la página de configuración
-     */
-    public function gpv_pagina_configuracion()
-    {
-        global $GPV_Database;
-
-
-        // Guardar cambios si se envió el formulario
-        if (isset($_POST['gpv_save_settings']) && isset($_POST['gpv_nonce']) && wp_verify_nonce($_POST['gpv_nonce'], 'gpv_save_settings')) {
-            // Procesar cada configuración
-            if (isset($_POST['calcular_consumo_automatico'])) {
-                $GPV_Database->update_setting('calcular_consumo_automatico', 1);
-            } else {
-                $GPV_Database->update_setting('calcular_consumo_automatico', 0);
-            }
-
-            if (isset($_POST['umbral_nivel_combustible_bajo'])) {
-                $GPV_Database->update_setting('umbral_nivel_combustible_bajo', sanitize_text_field($_POST['umbral_nivel_combustible_bajo']));
-            }
-
-            if (isset($_POST['mostrar_dashboard_publico'])) {
-                $GPV_Database->update_setting('mostrar_dashboard_publico', 1);
-            } else {
-                $GPV_Database->update_setting('mostrar_dashboard_publico', 0);
-            }
-
-            if (isset($_POST['sincronizacion_offline_habilitada'])) {
-                $GPV_Database->update_setting('sincronizacion_offline_habilitada', 1);
-            } else {
-                $GPV_Database->update_setting('sincronizacion_offline_habilitada', 0);
-            }
-
-            if (isset($_POST['logo_url'])) {
-                $GPV_Database->update_setting('logo_url', esc_url_raw($_POST['logo_url']));
-            }
-
-            // Mostrar mensaje de éxito
-            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Configuración guardada correctamente.', 'gestion-parque-vehicular') . '</p></div>';
-        }
-
-        // Obtener configuración actual
-        $calcular_consumo_automatico = $GPV_Database->get_setting('calcular_consumo_automatico');
-        $umbral_nivel_combustible_bajo = $GPV_Database->get_setting('umbral_nivel_combustible_bajo');
-        $mostrar_dashboard_publico = $GPV_Database->get_setting('mostrar_dashboard_publico');
-        $sincronizacion_offline_habilitada = $GPV_Database->get_setting('sincronizacion_offline_habilitada');
-        $logo_url = $GPV_Database->get_setting('logo_url');
-
-        // Mostrar formulario
-        echo '<div class="wrap gpv-admin-page">';
-        echo '<h2>' . esc_html__('Configuración del Plugin', 'gestion-parque-vehicular') . '</h2>';
-
-        echo '<form method="post" action="" class="gpv-admin-form">';
-        wp_nonce_field('gpv_save_settings', 'gpv_nonce');
-
-        echo '<table class="form-table">';
-
-        // Cálculo automático de consumo
-        echo '<tr>';
-        echo '<th scope="row">' . esc_html__('Cálculo automático de consumo', 'gestion-parque-vehicular') . '</th>';
-        echo '<td><fieldset><legend class="screen-reader-text"><span>' . esc_html__('Cálculo automático de consumo', 'gestion-parque-vehicular') . '</span></legend>';
-        echo '<label for="calcular_consumo_automatico"><input type="checkbox" name="calcular_consumo_automatico" id="calcular_consumo_automatico" value="1" ' . checked($calcular_consumo_automatico, 1, false) . '> ';
-        echo esc_html__('Calcular automáticamente el consumo de combustible en cada movimiento', 'gestion-parque-vehicular') . '</label>';
-        echo '</fieldset></td>';
-        echo '</tr>';
-
-        // Umbral de nivel bajo de combustible
-        echo '<tr>';
-        echo '<th scope="row"><label for="umbral_nivel_combustible_bajo">' . esc_html__('Umbral de nivel bajo de combustible (%)', 'gestion-parque-vehicular') . '</label></th>';
-        echo '<td><input type="number" name="umbral_nivel_combustible_bajo" id="umbral_nivel_combustible_bajo" value="' . esc_attr($umbral_nivel_combustible_bajo) . '" min="1" max="50" step="1" class="small-text">';
-        echo '<p class="description">' . esc_html__('Porcentaje para considerar nivel bajo de combustible y mostrar alertas.', 'gestion-parque-vehicular') . '</p></td>';
-        echo '</tr>';
-
-        // Mostrar dashboard público
-        echo '<tr>';
-        echo '<th scope="row">' . esc_html__('Dashboard público', 'gestion-parque-vehicular') . '</th>';
-        echo '<td><fieldset><legend class="screen-reader-text"><span>' . esc_html__('Dashboard público', 'gestion-parque-vehicular') . '</span></legend>';
-        echo '<label for="mostrar_dashboard_publico"><input type="checkbox" name="mostrar_dashboard_publico" id="mostrar_dashboard_publico" value="1" ' . checked($mostrar_dashboard_publico, 1, false) . '> ';
-        echo esc_html__('Mostrar dashboard público a usuarios no logueados', 'gestion-parque-vehicular') . '</label>';
-        echo '</fieldset></td>';
-        echo '</tr>';
-
-        // Sincronización offline
-        echo '<tr>';
-        echo '<th scope="row">' . esc_html__('Funcionalidad offline', 'gestion-parque-vehicular') . '</th>';
-        echo '<td><fieldset><legend class="screen-reader-text"><span>' . esc_html__('Funcionalidad offline', 'gestion-parque-vehicular') . '</span></legend>';
-        echo '<label for="sincronizacion_offline_habilitada"><input type="checkbox" name="sincronizacion_offline_habilitada" id="sincronizacion_offline_habilitada" value="1" ' . checked($sincronizacion_offline_habilitada, 1, false) . '> ';
-        echo esc_html__('Habilitar sincronización offline (PWA)', 'gestion-parque-vehicular') . '</label>';
-        echo '</fieldset></td>';
-        echo '</tr>';
-
-        // URL del logo
-        echo '<tr>';
-        echo '<th scope="row"><label for="logo_url">' . esc_html__('URL del Logo', 'gestion-parque-vehicular') . '</label></th>';
-        echo '<td><input type="url" name="logo_url" id="logo_url" value="' . esc_url($logo_url) . '" class="regular-text">';
-        echo '<p class="description">' . esc_html__('URL de la imagen del logo para la aplicación (proporción 3:1 recomendada).', 'gestion-parque-vehicular') . '</p></td>';
-        echo '</tr>';
-
-        echo '</table>';
-
-        echo '<p class="submit"><input type="submit" name="gpv_save_settings" class="button button-primary" value="' . esc_attr__('Guardar Cambios', 'gestion-parque-vehicular') . '"></p>';
-        echo '</form>';
-
-        echo '</div>';
-        echo '<div class="gpv-admin-section">';
-        echo '<h3>' . esc_html__('Herramientas de Base de Datos', 'gestion-parque-vehicular') . '</h3>';
-        echo '<p>' . esc_html__('Utiliza estas herramientas para actualizar la estructura de la base de datos si encuentras errores.', 'gestion-parque-vehicular') . '</p>';
-        echo '<form method="post" action="">';
-        wp_nonce_field('gpv_update_db', 'gpv_update_db_nonce');
-        echo '<p><input type="submit" name="gpv_update_db" class="button button-secondary" value="' . esc_attr__('Actualizar Estructura de Base de Datos', 'gestion-parque-vehicular') . '"></p>';
-        echo '</form>';
-
-        // Procesar actualización de BD si se solicitó
-        if (isset($_POST['gpv_update_db']) && isset($_POST['gpv_update_db_nonce']) && wp_verify_nonce($_POST['gpv_update_db_nonce'], 'gpv_update_db')) {
-            global $GPV_Database;
-            $result = $GPV_Database->update_database_structure();
-
-            if ($result) {
-                echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__('Base de datos actualizada correctamente.', 'gestion-parque-vehicular') . '</p></div>';
-            } else {
-                echo '<div class="notice notice-error is-dismissible"><p>' . esc_html__('Error al actualizar la base de datos.', 'gestion-parque-vehicular') . '</p></div>';
-            }
-        }
-        echo '</div>';
+        ob_clean(); // Limpia el buffer de salida
+        flush();     // Fuerza la salida al navegador
+        readfile($pdf_path); // Lee y envía el archivo al navegador
+        exit;        // Termina la ejecución del script
     }
 
 
-
     /**
-     * Método para generar el reporte C.E.I.
+     * Procesa la generación del reporte C.E.I. en formato PDF y lo descarga automáticamente.
+     *
+     * Similar a `generate_movement_report`, pero específico para el reporte de Consumo Especifico de Inflamable (CEI).
+     *
+     * @access public
+     * @action admin_post_gpv_generate_cei_report
+     * @return void
      */
     public function generate_cei_report()
     {
-        // Verificar nonce
-        if (!isset($_REQUEST['gpv_cei_report_nonce']) || !wp_verify_nonce($_REQUEST['gpv_cei_report_nonce'], 'gpv_cei_report')) {
-            wp_die(__('Error de seguridad. Por favor, intenta de nuevo.', 'gestion-parque-vehicular'));
+        // --- Seguridad y Validaciones ---
+        if (!isset($_REQUEST[self::NONCE_NOMBRE_CEI_REPORTE]) || !wp_verify_nonce($_REQUEST[self::NONCE_NOMBRE_CEI_REPORTE], self::NONCE_ACTION_CEI_REPORTE)) {
+            wp_die(__('Error de seguridad: Nonce verification failed.', 'gestion-parque-vehicular'));
         }
-
-        // Verificar permisos
         if (!current_user_can('manage_options')) {
-            wp_die(__('No tienes permiso para realizar esta acción.', 'gestion-parque-vehicular'));
+            wp_die(__('Permisos insuficientes.', 'gestion-parque-vehicular'));
         }
-
-        // Obtener ID del movimiento
-        $movement_id = isset($_POST['movement_id']) ? intval($_POST['movement_id']) : 0;
-
+        $movement_id = isset($_POST['movement_id']) ? intval($_POST['movement_id']) : 0; // Obtiene y sanitiza el ID del movimiento
         if (!$movement_id) {
             wp_die(__('Debe seleccionar un movimiento válido.', 'gestion-parque-vehicular'));
         }
 
-        // Incluir la clase del reporte
+        // --- Incluir Clase y Generar/Descargar PDF de Reporte CEI ---
         require_once GPV_PLUGIN_DIR . 'includes/reports/class-gpv-cei-report.php';
+        $cei_report = new GPV_CEI_Report();
+        $cei_report->generate_cei_report($movement_id); // Genera y descarga el reporte CEI, la descarga se maneja dentro de la clase
+    }
 
-        // Crear instancia y generar PDF
-        $report = new GPV_CEI_Report();
-        $report->generate_cei_report($movement_id);
+
+    /**
+     * Redirige a una página del plugin con un mensaje y un ID de reporte opcional.
+     *
+     * Utilizado para mantener la consistencia en las redirecciones después de procesar acciones
+     * como la generación o eliminación de reportes, permitiendo mostrar mensajes de estado al usuario.
+     *
+     * @access private
+     * @param string $page_slug Slug de la página de administración a redirigir (sin 'admin.php?page=').
+     * @param string $message_type Tipo de mensaje a pasar como parámetro en la URL ('success', 'error', etc.).
+     * @param int|null $report_id ID del reporte a incluir en la URL (opcional).
+     * @return void
+     */
+    private function redirect_con_mensaje($page_slug, $message_type, $report_id = null)
+    {
+        $redirect_url = admin_url("admin.php?page={$page_slug}&message={$message_type}"); // URL base de redirección
+
+        if ($report_id) {
+            $redirect_url .= "&id={$report_id}"; // Añade el ID del reporte si se proporciona
+        }
+
+        wp_redirect($redirect_url); // Realiza la redirección
+        exit; // Termina la ejecución del script después de la redirección
     }
 }
 
-// Inicializar la clase
-$gpv_admin = new GPV_Admin();
+// Inicializar la clase GPV_Admin para activar sus funcionalidades en el panel de administración
+new GPV_Admin();

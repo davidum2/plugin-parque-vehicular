@@ -1,84 +1,173 @@
 <?php
 
 /**
- * Clase para gestionar la base de datos del plugin
+ * Clase mejorada y documentada para gestionar la base de datos del plugin GPV (Gestión de Parque Vehicular).
+ *
+ * Esta clase encapsula toda la lógica de acceso y manipulación de datos para el plugin,
+ * utilizando la API de WordPress $wpdb para interactuar con la base de datos de forma segura y eficiente.
+ *
+ * Versión refactorizada y documentada por [Tu Nombre/Nombre del Refactorizador].
+ * Versión de la base de datos: 2.0
  */
 class GPV_Database
 {
     /**
-     * Versión de la base de datos
-     *
-     * @var string
+     * @var string Prefijo de las tablas de la base de datos de WordPress.
+     */
+    private $prefix; // **¡Añade esta línea para declarar la propiedad $prefix!**
+
+    /**
+     * @var string Versión actual de la base de datos del plugin.
+     * Se utiliza para la gestión de actualizaciones de la base de datos.
      */
     private $db_version;
 
     /**
-     * Objeto global de WordPress para la base de datos
-     *
-     * @var object
+     * @var wpdb Objeto global de WordPress para la interacción con la base de datos.
+     * Permite ejecutar consultas SQL y acceder a la base de datos de WordPress.
      */
     private $wpdb;
 
     /**
-     * Constructor
+     * Constructor de la clase GPV_Database.
+     *
+     * Inicializa la conexión a la base de datos de WordPress y establece la versión de la base de datos.
      */
     public function __construct()
     {
-        global $wpdb;
+        global $wpdb; // Importa la instancia global de $wpdb de WordPress.
         $this->wpdb = $wpdb;
-        $this->db_version = '2.0';
+        $this->db_version = '2.0'; // Define la versión actual de la base de datos.
+
+        // ** Añadido: Llama a la función para verificar y actualizar la estructura de la base de datos **
+        $this->update_database_structure();
+    }
+    /**
+     * Obtiene las estadísticas para el dashboard principal.
+     *
+     * @return array Array asociativo con las estadísticas del dashboard.
+     */
+    /**
+     * Obtiene las estadísticas para el dashboard principal.
+     *
+     * @return array Array asociativo con las estadísticas del dashboard.
+     */
+    public function obtener_estadisticas_dashboard()
+    {
+        global $wpdb;
+
+        $stats = array(
+            'vehicles' => array(),
+            'movements' => array(),
+            'fuel' => array()
+        );
+        // --- Estadísticas de Vehículos ---
+        $sql_vehiculos_total = "SELECT COUNT(*) FROM {$this->prefix}vehiculos";
+        $stats['vehicles']['total'] = $wpdb->get_var($sql_vehiculos_total);
+
+        $sql_vehiculos_disponibles = "SELECT COUNT(*) FROM {$this->prefix}vehiculos WHERE estado = 'disponible'"; // Ajusta 'disponible' si usas otro valor
+        $stats['vehicles']['available'] = $wpdb->get_var($sql_vehiculos_disponibles);
+
+        $sql_vehiculos_en_uso = "SELECT COUNT(*) FROM {$this->prefix}vehiculos WHERE estado = 'en_uso'"; // Ajusta 'en_uso' si usas otro valor
+        $stats['vehicles']['in_use'] = $wpdb->get_var($sql_vehiculos_en_uso);
+
+
+        // --- Estadísticas de Movimientos (Ejemplo muy básico, deberías refinar las consultas) ---
+        $sql_movimientos_hoy = "SELECT COUNT(*) FROM {$this->prefix}movimientos WHERE DATE(hora_salida) = CURDATE()"; // Ajusta 'hora_salida' y la tabla si es necesario
+        $stats['movements']['today'] = $wpdb->get_var($sql_movimientos_hoy);
+
+        $sql_movimientos_mes = "SELECT COUNT(*) FROM {$this->prefix}movimientos WHERE MONTH(hora_salida) = MONTH(CURDATE()) AND YEAR(hora_salida) = YEAR(CURDATE())"; // Ajusta 'hora_salida' y la tabla si es necesario
+        $stats['movements']['month'] = $wpdb->get_var($sql_movimientos_mes);
+
+        $sql_distancia_total = "SELECT SUM(distancia_recorrida) FROM {$this->prefix}movimientos"; // Ajusta 'distancia_recorrida' y la tabla si es necesario
+        $stats['movements']['total_distance'] = $wpdb->get_var($sql_distancia_total);
+        $stats['movements']['total_distance'] = $stats['movements']['total_distance'] ? $stats['movements']['total_distance'] : 0; // Asegurar que sea 0 si es NULL
+
+        $sql_movimientos_activos = "SELECT COUNT(*) FROM {$this->prefix}movimientos WHERE estado = 'activo'"; // Ajusta 'activo' y la tabla si es necesario
+        $stats['movements']['active'] = $wpdb->get_var($sql_movimientos_activos);
+
+
+        // --- Estadísticas de Combustible (Ejemplo muy básico, necesitas lógica para consumo mensual y promedio) ---
+        $stats['fuel']['month_consumption'] = 0; // **Debes implementar la lógica real**
+        $stats['fuel']['average_consumption'] = 0; // **Debes implementar la lógica real**
+
+
+        return $stats;
+    }
+    /**
+     * **AÑADIDO: Verifica si la estructura de la base de datos está actualizada y la actualiza si es necesario.**
+     *
+     * Este método compara la versión actual de la base de datos almacenada en la opción 'gpv_db_version'
+     * con la versión actual definida en la clase ($this->db_version). Si las versiones no coinciden,
+     * se ejecuta el proceso de actualización de las tablas.
+     *
+     * @return void
+     */
+    private function update_database_structure()
+    {
+        $installed_db_version = get_option('gpv_db_version');
+
+        // Si la versión instalada es diferente a la actual, o si no hay versión instalada (instalación nueva)
+        if ($installed_db_version != $this->db_version) {
+            $this->install_tables(); // Llama al método install_tables para (re)instalar las tablas.
+
+            // Actualiza la versión de la base de datos en las opciones de WordPress
+            update_option('gpv_db_version', $this->db_version);
+        }
     }
 
+
     /**
-     * Instalar tablas del plugin
+     * Instala las tablas necesarias para el plugin en la base de datos de WordPress.
+     *
+     * Utiliza dbDelta para crear y actualizar las tablas de forma segura,
+     * y guarda la versión de la base de datos y la configuración inicial.
+     *
+     * @return void
      */
     public function install_tables()
     {
-        $charset_collate = $this->wpdb->get_charset_collate();
+        $charset_collate = $this->wpdb->get_charset_collate(); // Obtiene el cotejamiento de caracteres de WordPress.
+        $sql = ""; // Inicializa la variable para construir las sentencias SQL.
 
-        // Nombres de tablas
+        // -- Definición de nombres de tablas utilizando el prefijo de WordPress --
         $tabla_vehiculos = $this->wpdb->prefix . 'gpv_vehiculos';
         $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
         $tabla_cargas = $this->wpdb->prefix . 'gpv_cargas';
-
         $tabla_usuarios = $this->wpdb->prefix . 'gpv_usuarios';
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
-
-        // Nombres de nuevas tablas para reportes
         $tabla_reportes_movimientos = $this->wpdb->prefix . 'gpv_reportes_movimientos';
-        $tabla_firmantes = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+        $tabla_firmantes = $this->wpdb->prefix . 'gpv_firmantes_autorizados'; // Tabla no definida en el código original, asumida.
 
+        // -- Sentencia SQL para crear la tabla de Reportes de Movimientos --
+        $sql .= "CREATE TABLE IF NOT EXISTS {$tabla_reportes_movimientos} (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            vehiculo_id mediumint(9) NOT NULL,
+            vehiculo_siglas varchar(20) NOT NULL,
+            vehiculo_nombre varchar(100) NOT NULL,
+            odometro_inicial float NOT NULL,
+            odometro_final float NOT NULL,
+            fecha_inicial date NOT NULL,
+            hora_inicial time NOT NULL,
+            fecha_final date NOT NULL,
+            hora_final time NOT NULL,
+            distancia_total float NOT NULL,
+            conductor_id int(11) NOT NULL,
+            conductor varchar(100) NOT NULL,
+            movimientos_incluidos text NOT NULL,
+            numero_mensaje varchar(50) DEFAULT NULL,
+            firmante_id mediumint(9) DEFAULT NULL,
+            firmante2_id mediumint(9) DEFAULT NULL,  -- Añadido firmante2_id, presente en el formulario pero no en la tabla original.
+            fecha_reporte date NOT NULL,
+            estado varchar(20) DEFAULT 'pendiente',
+            notas text DEFAULT NULL,
+            creado_en datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY vehiculo_idx (vehiculo_id)
+        ) {$charset_collate};";
 
-        $sql = "";
-
-        // Tabla de Reportes de Movimientos
-        $sql .= "CREATE TABLE IF NOT EXISTS $tabla_reportes_movimientos (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        vehiculo_id mediumint(9) NOT NULL,
-        vehiculo_siglas varchar(20) NOT NULL,
-        vehiculo_nombre varchar(100) NOT NULL,
-        odometro_inicial float NOT NULL,
-        odometro_final float NOT NULL,
-        fecha_inicial date NOT NULL,
-        hora_inicial time NOT NULL,
-        fecha_final date NOT NULL,
-        hora_final time NOT NULL,
-        distancia_total float NOT NULL,
-        conductor_id int(11) NOT NULL,
-        conductor varchar(100) NOT NULL,
-        movimientos_incluidos text NOT NULL,
-        numero_mensaje varchar(50) DEFAULT NULL,
-        firmante_id mediumint(9) DEFAULT NULL,
-        fecha_reporte date NOT NULL,
-        estado varchar(20) DEFAULT 'pendiente',
-        notas text DEFAULT NULL,
-        creado_en datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        KEY vehiculo_idx (vehiculo_id)
-    ) $charset_collate;";
-
-        // Tabla Vehículos (ampliada)
-        $sql .= "CREATE TABLE $tabla_vehiculos (
+        // -- Sentencia SQL para crear la tabla de Vehículos (ampliada) --
+        $sql .= "CREATE TABLE {$tabla_vehiculos} (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             siglas varchar(20) NOT NULL,
             anio int(4) NOT NULL,
@@ -97,10 +186,10 @@ class GPV_Database
             imagen_id int(11) DEFAULT NULL,
             notas longtext DEFAULT NULL,
             PRIMARY KEY (id)
-        ) $charset_collate;";
+        ) {$charset_collate};";
 
-        // Tabla Movimientos (ampliada)
-        $sql .= "CREATE TABLE $tabla_movimientos (
+        // -- Sentencia SQL para crear la tabla de Movimientos (ampliada) --
+        $sql .= "CREATE TABLE {$tabla_movimientos} (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             vehiculo_id mediumint(9) NOT NULL,
             vehiculo_siglas varchar(20) NOT NULL,
@@ -124,10 +213,10 @@ class GPV_Database
             modificado_en datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY vehiculo_idx (vehiculo_id)
-        ) $charset_collate;";
+        ) {$charset_collate};";
 
-        // Tabla Cargas de Combustible (ampliada)
-        $sql .= "CREATE TABLE $tabla_cargas (
+        // -- Sentencia SQL para crear la tabla de Cargas de Combustible (ampliada) --
+        $sql .= "CREATE TABLE {$tabla_cargas} (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             vehiculo_id mediumint(9) NOT NULL,
             vehiculo_siglas varchar(20) NOT NULL,
@@ -145,12 +234,10 @@ class GPV_Database
             notas longtext DEFAULT NULL,
             PRIMARY KEY (id),
             KEY vehiculo_idx (vehiculo_id)
-        ) $charset_collate;";
+        ) {$charset_collate};";
 
-
-
-        // Tabla Usuarios (nueva)
-        $sql .= "CREATE TABLE $tabla_usuarios (
+        // -- Sentencia SQL para crear la tabla de Usuarios (nueva) --
+        $sql .= "CREATE TABLE {$tabla_usuarios} (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             wp_user_id int(11) NOT NULL,
             tipo_licencia varchar(50) DEFAULT NULL,
@@ -162,10 +249,10 @@ class GPV_Database
             preferencias longtext DEFAULT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY wp_user_id (wp_user_id)
-        ) $charset_collate;";
+        ) {$charset_collate};";
 
-        // Tabla Configuración (nueva)
-        $sql .= "CREATE TABLE $tabla_configuracion (
+        // -- Sentencia SQL para crear la tabla de Configuración (nueva) --
+        $sql .= "CREATE TABLE {$tabla_configuracion} (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             clave varchar(50) NOT NULL,
             valor longtext NOT NULL,
@@ -173,54 +260,58 @@ class GPV_Database
             modificado_en datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY clave (clave)
-        ) $charset_collate;";
+        ) {$charset_collate};";
 
-        // Ejecutar creación de tablas
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
+        // -- Ejecuta las sentencias SQL para crear las tablas --
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php'); // Carga funciones de actualización de WordPress.
+        dbDelta($sql); // Utiliza dbDelta para crear/actualizar las tablas de manera segura.
 
-        // Guardar versión instalada
-        update_option('gpv_db_version', $this->db_version);
+        update_option('gpv_db_version', $this->db_version); // Guarda la versión de la base de datos en las opciones de WordPress.
 
-        // Insertar configuración inicial
-        $this->insert_default_settings();
+        $this->insert_default_settings(); // Inserta la configuración inicial por defecto.
     }
 
     /**
-     * Eliminar tablas del plugin
+     * Elimina las tablas del plugin de la base de datos.
+     *
+     * Se llama generalmente durante la desinstalación del plugin para limpiar la base de datos.
+     *
+     * @return void
      */
     public function uninstall_tables()
     {
-        $tablas = [
+        $tablas = [ // Array con los nombres de las tablas a eliminar.
             $this->wpdb->prefix . 'gpv_vehiculos',
             $this->wpdb->prefix . 'gpv_movimientos',
             $this->wpdb->prefix . 'gpv_cargas',
             $this->wpdb->prefix . 'gpv_usuarios',
-            $this->wpdb->prefix . 'gpv_configuracion'
+            $this->wpdb->prefix . 'gpv_configuracion',
+            $this->wpdb->prefix . 'gpv_reportes_movimientos', // Añadida la tabla de reportes para ser eliminada.
+            $this->wpdb->prefix . 'gpv_firmantes_autorizados' // Añadida la tabla de firmantes para ser eliminada.
         ];
 
         foreach ($tablas as $tabla) {
-            $this->wpdb->query("DROP TABLE IF EXISTS $tabla");
+            $this->wpdb->query("DROP TABLE IF EXISTS {$tabla}"); // Elimina cada tabla si existe.
         }
 
-        // Eliminar opciones
-        delete_option('gpv_db_version');
+        delete_option('gpv_db_version'); // Elimina la opción de versión de la base de datos al desinstalar.
     }
 
     /**
-     * Insertar configuración por defecto
+     * Inserta la configuración por defecto en la tabla de configuración si no existen registros.
+     *
+     * Este método asegura que la tabla de configuración tenga valores iniciales al instalar el plugin.
+     *
+     * @return void
      */
     private function insert_default_settings()
     {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
-        // Comprobar si ya hay configuración
-        $exists = $this->wpdb->get_var("SELECT COUNT(*) FROM $tabla_configuracion");
+        $exists = $this->wpdb->get_var("SELECT COUNT(*) FROM {$tabla_configuracion}"); // Verifica si existen registros en la tabla.
 
-        if (!$exists) {
-            // Configuraciones por defecto
-            $default_settings = [
-
+        if (!$exists) { // Si no existen registros, inserta la configuración por defecto.
+            $default_settings = [ // Array con la configuración por defecto.
                 [
                     'clave' => 'calcular_consumo_automatico',
                     'valor' => '1',
@@ -249,142 +340,158 @@ class GPV_Database
             ];
 
             foreach ($default_settings as $setting) {
-                $this->wpdb->insert($tabla_configuracion, $setting);
+                $this->wpdb->insert($tabla_configuracion, $setting); // Inserta cada configuración en la tabla.
             }
         }
     }
 
     /**
-     * Obtener configuración por clave
+     * Sección de Métodos para la Gestión de Configuración
+     * ----------------------------------------------------
+     */
+
+    /**
+     * Obtiene el valor de una configuración específica mediante su clave.
      *
-     * @param string $key Clave de la configuración
-     * @return string|null Valor de la configuración o null si no existe
+     * @param string $key Clave de la configuración a obtener.
+     * @return string|null Valor de la configuración si existe, NULL si no.
      */
     public function get_setting($key)
     {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
         $result = $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT valor FROM $tabla_configuracion WHERE clave = %s",
+            $this->wpdb->prepare( // Utiliza prepare para prevenir inyección SQL.
+                "SELECT valor FROM {$tabla_configuracion} WHERE clave = %s",
                 $key
             )
         );
 
-        return $result ? $result->valor : null;
+        return $result ? $result->valor : null; // Retorna el valor o NULL si no se encuentra.
     }
 
     /**
-     * Actualizar configuración
+     * Actualiza el valor de una configuración existente.
      *
-     * @param string $key Clave de la configuración
-     * @param string $value Nuevo valor
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param string $key Clave de la configuración a actualizar.
+     * @param string $value Nuevo valor para la configuración.
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function update_setting($key, $value)
     {
         $tabla_configuracion = $this->wpdb->prefix . 'gpv_configuracion';
 
-        return $this->wpdb->update(
+        return $this->wpdb->update( // Utiliza update para actualizar registros.
             $tabla_configuracion,
-            ['valor' => $value],
-            ['clave' => $key]
+            ['valor' => $value], // Datos a actualizar (valor).
+            ['clave' => $key]    // Condición WHERE (clave).
         );
     }
 
-    /**********************
-     * MÉTODOS DE VEHÍCULOS
-     **********************/
+    /**
+     * Sección de Métodos para la Gestión de Vehículos
+     * ------------------------------------------------
+     */
 
     /**
-     * Obtener listado de vehículos con filtros opcionales
+     * Obtiene un listado de vehículos con opciones de filtrado y ordenamiento.
      *
-     * @param array $args Argumentos para filtrar
-     * @return array Listado de vehículos
+     * @param array $args Argumentos para filtrar y ordenar los vehículos (opcional).
+     *                    - 'estado': string, Filtra por estado del vehículo (ej: 'disponible').
+     *                    - 'conductor_asignado': int, Filtra por ID del conductor asignado.
+     *                    - 'siglas': string, Filtra por siglas del vehículo (LIKE).
+     *                    - 'categoria': string, Filtra por categoría del vehículo.
+     *                    - 'orderby': string, Campo para ordenar los resultados (ej: 'nombre_vehiculo').
+     *                    - 'order': string, Dirección de ordenamiento ('ASC' o 'DESC').
+     *                    - 'limit': int, Límite de resultados a obtener.
+     *                    - 'offset': int, Desplazamiento para la paginación.
+     * @return array Listado de vehículos que cumplen con los criterios de búsqueda.
      */
     public function get_vehicles($args = [])
     {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
+        $query = "SELECT * FROM {$tabla}"; // Inicia la consulta SQL.
+        $where_clauses = []; // Array para almacenar las cláusulas WHERE.
+        $prepare_args = []; // Array para almacenar argumentos para prepare.
 
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
+        // -- Construcción de cláusulas WHERE basadas en los argumentos --
         if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
             if (isset($args['estado'])) {
-                $query .= $this->wpdb->prepare(" AND estado = %s", $args['estado']);
+                $where_clauses[] = 'estado = %s';
+                $prepare_args[] = $args['estado'];
             }
-
             if (isset($args['conductor_asignado'])) {
-                $query .= $this->wpdb->prepare(" AND conductor_asignado = %d", $args['conductor_asignado']);
+                $where_clauses[] = 'conductor_asignado = %d';
+                $prepare_args[] = $args['conductor_asignado'];
             }
-
             if (isset($args['siglas'])) {
-                $query .= $this->wpdb->prepare(" AND siglas LIKE %s", '%' . $this->wpdb->esc_like($args['siglas']) . '%');
+                $where_clauses[] = 'siglas LIKE %s';
+                $prepare_args[] = '%' . $this->wpdb->esc_like($args['siglas']) . '%';
             }
-
             if (isset($args['categoria'])) {
-                $query .= $this->wpdb->prepare(" AND categoria = %s", $args['categoria']);
+                $where_clauses[] = 'categoria = %s';
+                $prepare_args[] = $args['categoria'];
             }
         }
 
-        // Ordenación
-        if (isset($args['orderby'])) {
-            $orderby = sanitize_sql_orderby($args['orderby']);
-            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY $orderby $order";
-        } else {
-            $query .= " ORDER BY nombre_vehiculo ASC";
+        if (!empty($where_clauses)) { // Añade las cláusulas WHERE a la consulta si existen.
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
         }
 
-        // Límite
+        // -- Ordenamiento --
+        $orderby_allowed_values = ['id', 'siglas', 'anio', 'nombre_vehiculo', 'odometro_actual', 'nivel_combustible', 'tipo_combustible', 'medida_odometro', 'factor_consumo', 'capacidad_tanque', 'ubicacion_actual', 'categoria', 'conductor_asignado', 'estado', 'ultima_actualizacion', 'imagen_id', 'notas']; // Lista blanca de columnas ordenables.
+        $order_allowed_values = ['ASC', 'DESC'];
+        $orderby = isset($args['orderby']) && in_array($args['orderby'], $orderby_allowed_values) ? sanitize_sql_orderby($args['orderby']) : 'nombre_vehiculo';
+        $order = isset($args['order']) && in_array(strtoupper($args['order']), $order_allowed_values) ? strtoupper($args['order']) : 'ASC';
+        $query .= " ORDER BY {$orderby} {$order}"; // Añade la cláusula ORDER BY a la consulta.
+
+
+        // -- Límite y Offset (Paginación) --
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
         }
 
-        return $this->wpdb->get_results($query);
+        return $this->wpdb->get_results($this->wpdb->prepare($query, $prepare_args)); // Ejecuta la consulta preparada y retorna los resultados.
     }
 
     /**
-     * Obtener un vehículo por ID
+     * Obtiene la información de un vehículo específico por su ID.
      *
-     * @param int $id ID del vehículo
-     * @return object|null Objeto con los datos del vehículo o null si no existe
+     * @param int $id ID del vehículo a obtener.
+     * @return object|null Objeto con los datos del vehículo si se encuentra, NULL si no.
      */
     public function get_vehicle($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
         return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE id = %d",
+            $this->wpdb->prepare( // Utiliza prepare para prevenir inyección SQL.
+                "SELECT * FROM {$tabla} WHERE id = %d",
                 $id
             )
         );
     }
 
     /**
-     * Insertar un nuevo vehículo
+     * Inserta un nuevo vehículo en la base de datos.
      *
-     * @param array $data Datos del vehículo
-     * @return int|false ID del vehículo insertado o false en caso de error
+     * @param array $data Datos del vehículo a insertar.
+     *                    Debe incluir 'siglas' y 'nombre_vehiculo' como campos obligatorios.
+     *                    Otros campos son opcionales y se utilizan valores por defecto si no se proporcionan.
+     * @return int|false ID del vehículo insertado en caso de éxito, FALSE en caso de error.
      */
     public function insert_vehicle($data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
-        // Asegurar que los campos obligatorios estén presentes
-        if (empty($data['siglas']) || empty($data['nombre_vehiculo'])) {
-            return false;
+        if (empty($data['siglas']) || empty($data['nombre_vehiculo'])) { // Valida campos obligatorios.
+            return false; // Retorna FALSE si faltan campos obligatorios.
         }
 
-        // Establecer valores por defecto si no están presentes
-        $defaults = [
+        $defaults = [ // Valores por defecto para campos opcionales.
             'anio' => date('Y'),
             'odometro_actual' => 0,
             'nivel_combustible' => 0,
@@ -397,1351 +504,745 @@ class GPV_Database
             'estado' => 'disponible',
             'ultima_actualizacion' => current_time('mysql')
         ];
+        $data = wp_parse_args($data, $defaults); // Combina los datos proporcionados con los valores por defecto.
 
-        $data = wp_parse_args($data, $defaults);
-
-        $result = $this->wpdb->insert($tabla, $data);
+        $result = $this->wpdb->insert($tabla, $data); // Intenta insertar el vehículo en la base de datos.
 
         if ($result) {
-            do_action('gpv_after_vehicle_insert', $this->wpdb->insert_id, $data);
-            return $this->wpdb->insert_id;
+            $vehicle_id = $this->wpdb->insert_id;
+            do_action('gpv_after_vehicle_insert', $vehicle_id, $data); // Ejecuta acción 'gpv_after_vehicle_insert'.
+            return $vehicle_id; // Retorna el ID del vehículo insertado.
         }
 
-        return false;
+        return false; // Retorna FALSE si la inserción falla.
     }
 
     /**
-     * Actualizar un vehículo
+     * Actualiza la información de un vehículo existente.
      *
-     * @param int $id ID del vehículo
-     * @param array $data Datos a actualizar
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param int $id ID del vehículo a actualizar.
+     * @param array $data Array asociativo con los datos a actualizar.
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function update_vehicle($id, $data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
-        // Asegurar que el ID sea válido
-        if (!$id || !is_numeric($id)) {
-            return false;
+        if (!$id || !is_numeric($id)) { // Valida que el ID sea válido.
+            return false; // Retorna FALSE si el ID no es válido.
+        }
+        if (empty($data)) { // Valida que haya datos para actualizar.
+            return false; // Retorna FALSE si no hay datos para actualizar.
         }
 
-        // Si no hay datos para actualizar
-        if (empty($data)) {
-            return false;
-        }
-
-        // Actualizar fecha de modificación si no se ha establecido
-        if (!isset($data['ultima_actualizacion'])) {
+        if (!isset($data['ultima_actualizacion'])) { // Actualiza la fecha de modificación si no está presente.
             $data['ultima_actualizacion'] = current_time('mysql');
         }
 
-        $result = $this->wpdb->update(
+        $result = $this->wpdb->update( // Intenta actualizar el vehículo en la base de datos.
             $tabla,
             $data,
-            ['id' => $id]
+            ['id' => $id] // Cláusula WHERE para identificar el vehículo a actualizar.
         );
 
         if ($result !== false) {
-            do_action('gpv_after_vehicle_update', $id, $data);
+            do_action('gpv_after_vehicle_update', $id, $data); // Ejecuta acción 'gpv_after_vehicle_update'.
         }
 
-        return $result;
+        return $result; // Retorna el resultado de la operación update.
     }
 
     /**
-     * Eliminar un vehículo
+     * Elimina un vehículo de la base de datos.
      *
-     * @param int $id ID del vehículo
-     * @return int|false Número de filas eliminadas o false en caso de error
+     * @param int $id ID del vehículo a eliminar.
+     * @return int|false Número de filas eliminadas en caso de éxito, FALSE en caso de error.
      */
     public function delete_vehicle($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_vehiculos';
 
-        // Verificar si el vehículo existe
-        $vehicle = $this->get_vehicle($id);
+        $vehicle = $this->get_vehicle($id); // Verifica si el vehículo existe antes de eliminarlo.
         if (!$vehicle) {
-            return false;
+            return false; // Retorna FALSE si el vehículo no existe.
         }
 
-        do_action('gpv_before_vehicle_delete', $id, $vehicle);
+        do_action('gpv_before_vehicle_delete', $id, $vehicle); // Ejecuta acción 'gpv_before_vehicle_delete' antes de eliminar.
 
-        return $this->wpdb->delete(
+        return $this->wpdb->delete( // Intenta eliminar el vehículo.
             $tabla,
-            ['id' => $id],
-            ['%d']
+            ['id' => $id], // Cláusula WHERE para identificar el vehículo a eliminar.
+            ['%d']        // Formato del ID (entero).
         );
     }
 
-    /**********************
-     * MÉTODOS DE MOVIMIENTOS
-     **********************/
+    /**
+     * Sección de Métodos para la Gestión de Movimientos
+     * -------------------------------------------------
+     */
 
     /**
-     * Obtener listado de movimientos con filtros opcionales
+     * Obtiene un listado de movimientos con opciones de filtrado y ordenamiento.
      *
-     * @param array $args Argumentos para filtrar
-     * @return array Listado de movimientos
+     * @param array $args Argumentos para filtrar y ordenar los movimientos (opcional).
+     *                    - 'vehiculo_id': int, Filtra por ID del vehículo.
+     *                    - 'conductor_id': int, Filtra por ID del conductor.
+     *                    - 'estado': string, Filtra por estado del movimiento (ej: 'en_progreso').
+     *                    - 'fecha_desde': string (fecha), Filtra movimientos desde esta fecha (hora_salida >=).
+     *                    - 'fecha_hasta': string (fecha), Filtra movimientos hasta esta fecha (hora_salida <=).
+     *                    - 'search': string, Término de búsqueda para filtrar por siglas, nombre vehículo, conductor o propósito (LIKE).
+     *                    - 'orderby': string, Campo para ordenar (ej: 'hora_salida').
+     *                    - 'order': string, Dirección de ordenamiento ('ASC' o 'DESC').
+     *                    - 'limit': int, Límite de resultados a obtener.
+     *                    - 'offset': int, Desplazamiento para la paginación.
+     * @return array Listado de movimientos que cumplen con los criterios de búsqueda.
      */
     public function get_movements($args = [])
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
+        $query = "SELECT * FROM {$tabla}"; // Inicia la consulta SQL.
+        $where_clauses = []; // Array para almacenar las cláusulas WHERE.
+        $prepare_args = []; // Array para almacenar argumentos para prepare.
 
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
+        // -- Construcción de cláusulas WHERE basadas en los argumentos --
         if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
             if (isset($args['vehiculo_id'])) {
-                $query .= $this->wpdb->prepare(" AND vehiculo_id = %d", $args['vehiculo_id']);
+                $where_clauses[] = 'vehiculo_id = %d';
+                $prepare_args[] = $args['vehiculo_id'];
             }
-
             if (isset($args['conductor_id'])) {
-                $query .= $this->wpdb->prepare(" AND conductor_id = %d", $args['conductor_id']);
+                $where_clauses[] = 'conductor_id = %d';
+                $prepare_args[] = $args['conductor_id'];
             }
-
             if (isset($args['estado'])) {
-                $query .= $this->wpdb->prepare(" AND estado = %s", $args['estado']);
+                $where_clauses[] = 'estado = %s';
+                $prepare_args[] = $args['estado'];
             }
-
             if (isset($args['fecha_desde'])) {
-                $query .= $this->wpdb->prepare(" AND hora_salida >= %s", $args['fecha_desde']);
+                $where_clauses[] = 'hora_salida >= %s';
+                $prepare_args[] = $args['fecha_desde'];
             }
-
             if (isset($args['fecha_hasta'])) {
-                $query .= $this->wpdb->prepare(" AND hora_salida <= %s", $args['fecha_hasta']);
+                $where_clauses[] = 'hora_salida <= %s';
+                $prepare_args[] = $args['fecha_hasta'];
             }
-
             if (isset($args['search'])) {
                 $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
-                $query .= $this->wpdb->prepare(
-                    " AND (vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR conductor LIKE %s OR proposito LIKE %s)",
-                    $search,
-                    $search,
-                    $search,
-                    $search
-                );
+                $where_clauses[] = "(vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR conductor LIKE %s OR proposito LIKE %s)";
+                array_push($prepare_args, $search, $search, $search, $search); // Añade múltiples veces el mismo argumento para prepare.
             }
         }
-
-        // Ordenación
-        if (isset($args['orderby'])) {
-            $orderby = sanitize_sql_orderby($args['orderby']);
-            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY $orderby $order";
-        } else {
-            $query .= " ORDER BY hora_salida DESC";
+        if (!empty($where_clauses)) { // Añade las cláusulas WHERE a la consulta si existen.
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
         }
 
-        // Límite
+        // -- Ordenamiento --
+        $orderby_allowed_values = ['id', 'vehiculo_id', 'vehiculo_siglas', 'vehiculo_nombre', 'odometro_salida', 'hora_salida', 'odometro_entrada', 'hora_entrada', 'distancia_recorrida', 'combustible_consumido', 'nivel_combustible', 'conductor_id', 'conductor', 'proposito', 'ruta', 'estado', 'notas', 'reportado', 'reporte_id', 'creado_en', 'modificado_en']; // Lista blanca de columnas ordenables.
+        $order_allowed_values = ['ASC', 'DESC'];
+
+        $orderby = isset($args['orderby']) && in_array($args['orderby'], $orderby_allowed_values) ? sanitize_sql_orderby($args['orderby']) : 'hora_salida';
+        $order = isset($args['order']) && in_array(strtoupper($args['order']), $order_allowed_values) ? strtoupper($args['order']) : 'DESC';
+        $query .= " ORDER BY {$orderby} {$order}"; // Añade la cláusula ORDER BY a la consulta.
+
+        // -- Límite y Offset (Paginación) --
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
         }
 
-        return $this->wpdb->get_results($query);
+
+        return $this->wpdb->get_results($this->wpdb->prepare($query, $prepare_args)); // Ejecuta la consulta preparada y retorna los resultados.
     }
 
     /**
-     * Obtener un movimiento por ID
+     * Obtiene la información de un movimiento específico por su ID.
      *
-     * @param int $id ID del movimiento
-     * @return object|null Objeto con los datos del movimiento o null si no existe
+     * @param int $id ID del movimiento a obtener.
+     * @return object|null Objeto con los datos del movimiento si se encuentra, NULL si no.
      */
     public function get_movement($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
         return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE id = %d",
+            $this->wpdb->prepare( // Utiliza prepare para prevenir inyección SQL.
+                "SELECT * FROM {$tabla} WHERE id = %d",
                 $id
             )
         );
     }
 
     /**
-     * Insertar un nuevo movimiento
+     * Inserta un nuevo movimiento en la base de datos.
      *
-     * @param array $data Datos del movimiento
-     * @return int|false ID del movimiento insertado o false en caso de error
+     * @param array $data Datos del movimiento a insertar.
+     *                    Debe incluir 'vehiculo_id', 'odometro_salida' y 'hora_salida' como campos obligatorios.
+     *                    Establece 'estado' a 'en_progreso' por defecto y fecha de creación si no se proporcionan.
+     * @return int|false ID del movimiento insertado en caso de éxito, FALSE en caso de error.
      */
     public function insert_movement($data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
-        // Asegurar que los campos obligatorios estén presentes
-        if (empty($data['vehiculo_id']) || empty($data['odometro_salida']) || empty($data['hora_salida'])) {
-            return false;
+        if (empty($data['vehiculo_id']) || empty($data['odometro_salida']) || empty($data['hora_salida'])) { // Valida campos obligatorios.
+            return false; // Retorna FALSE si faltan campos obligatorios.
         }
 
-        // Establecer valores por defecto
-        if (!isset($data['estado'])) {
-            $data['estado'] = 'en_progreso';
-        }
+        $data['estado'] = $data['estado'] ?? 'en_progreso'; // Establece 'estado' a 'en_progreso' por defecto si no se proporciona.
+        $data['creado_en'] = $data['creado_en'] ?? current_time('mysql'); // Establece fecha de creación si no se proporciona.
 
-        if (!isset($data['creado_en'])) {
-            $data['creado_en'] = current_time('mysql');
-        }
 
-        $result = $this->wpdb->insert($tabla, $data);
+        $result = $this->wpdb->insert($tabla, $data); // Intenta insertar el movimiento en la base de datos.
 
         if ($result) {
             $movement_id = $this->wpdb->insert_id;
+            $vehicle_id = $data['vehiculo_id'];
+            $odometro_salida = $data['odometro_salida'];
 
-            // Actualizar odómetro y estado del vehículo
-            $this->update_vehicle($data['vehiculo_id'], [
-                'odometro_actual' => $data['odometro_salida'],
-                'estado' => 'en_uso',
-                'ultima_actualizacion' => current_time('mysql')
-            ]);
+            $this->update_vehicle( // Actualiza el vehículo asociado al movimiento.
+                $vehicle_id,
+                [
+                    'odometro_actual' => $odometro_salida, // Actualiza odómetro del vehículo.
+                    'estado' => 'en_uso',                // Cambia el estado del vehículo a 'en_uso'.
+                    'ultima_actualizacion' => current_time('mysql') // Actualiza la fecha de última actualización del vehículo.
+                ]
+            );
+            do_action('gpv_after_movement_insert', $movement_id, $data); // Ejecuta acción 'gpv_after_movement_insert'.
 
-            do_action('gpv_after_movement_insert', $movement_id, $data);
-
-            return $movement_id;
+            return $movement_id; // Retorna el ID del movimiento insertado.
         }
 
-        return false;
+        return false; // Retorna FALSE si la inserción falla.
     }
 
     /**
-     * Actualizar un movimiento
+     * Actualiza la información de un movimiento existente.
      *
-     * @param int $id ID del movimiento
-     * @param array $data Datos a actualizar
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param int $id ID del movimiento a actualizar.
+     * @param array $data Array asociativo con los datos a actualizar.
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function update_movement($id, $data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
-        // Obtener movimiento actual para verificar cambios
-        $current_movement = $this->get_movement($id);
+        $current_movement = $this->get_movement($id); // Obtiene el movimiento actual para comparaciones.
         if (!$current_movement) {
-            return false;
+            return false; // Retorna FALSE si el movimiento no existe.
         }
 
-        // Establecer fecha de modificación
-        $data['modificado_en'] = current_time('mysql');
+        $data['modificado_en'] = current_time('mysql'); // Actualiza la fecha de modificación.
 
-        $result = $this->wpdb->update(
+        $result = $this->wpdb->update( // Intenta actualizar el movimiento en la base de datos.
             $tabla,
             $data,
-            ['id' => $id]
+            ['id' => $id] // Cláusula WHERE para identificar el movimiento a actualizar.
         );
 
         if ($result !== false) {
-            // Si se está finalizando el movimiento (entrada)
-            if (isset($data['odometro_entrada']) && $current_movement->estado === 'en_progreso') {
-                // Calcular distancia si no se proporcionó
-                if (!isset($data['distancia_recorrida']) && $data['odometro_entrada'] > 0) {
-                    $distancia = $data['odometro_entrada'] - $current_movement->odometro_salida;
-                    $this->wpdb->update(
-                        $tabla,
-                        ['distancia_recorrida' => $distancia],
-                        ['id' => $id]
-                    );
-                }
-
-                // Actualizar odómetro y estado del vehículo al finalizar
-                $vehicle_updates = [
-                    'odometro_actual' => $data['odometro_entrada'],
-                    'estado' => 'disponible',
-                    'ultima_actualizacion' => current_time('mysql')
+            if (isset($data['odometro_entrada']) && $current_movement->estado === 'en_progreso') { // Si se está finalizando el movimiento.
+                $distancia = isset($data['distancia_recorrida']) ? $data['distancia_recorrida'] : ($data['odometro_entrada'] - $current_movement->odometro_salida); // Calcula la distancia si no se proporciona.
+                $vehicle_updates = [ // Datos para actualizar el vehículo al finalizar el movimiento.
+                    'odometro_actual' => $data['odometro_entrada'], // Actualiza el odómetro del vehículo.
+                    'estado' => 'disponible',                   // Cambia el estado del vehículo a 'disponible'.
+                    'ultima_actualizacion' => current_time('mysql') // Actualiza la fecha de última actualización del vehículo.
                 ];
-
-                // Si hay nivel de combustible, actualizarlo también
-                if (isset($data['nivel_combustible'])) {
+                if (isset($data['nivel_combustible'])) { // Si se proporciona nivel de combustible, actualiza también.
                     $vehicle_updates['nivel_combustible'] = $data['nivel_combustible'];
                 }
 
-                $this->update_vehicle($current_movement->vehiculo_id, $vehicle_updates);
+                $this->wpdb->update( // Actualiza la tabla de movimientos con la distancia recorrida.
+                    $tabla,
+                    ['distancia_recorrida' => $distancia],
+                    ['id' => $id]
+                );
+                $this->update_vehicle($current_movement->vehiculo_id, $vehicle_updates); // Actualiza el vehículo asociado.
             }
-
-            do_action('gpv_after_movement_update', $id, $data, $current_movement);
+            do_action('gpv_after_movement_update', $id, $data, $current_movement); // Ejecuta acción 'gpv_after_movement_update'.
         }
 
-        return $result;
+        return $result; // Retorna el resultado de la operación update.
     }
 
     /**
-     * Eliminar un movimiento
+     * Elimina un movimiento de la base de datos.
      *
-     * @param int $id ID del movimiento
-     * @return int|false Número de filas eliminadas o false en caso de error
+     * @param int $id ID del movimiento a eliminar.
+     * @return int|false Número de filas eliminadas en caso de éxito, FALSE en caso de error.
      */
     public function delete_movement($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
-        // Verificar si el movimiento existe
-        $movement = $this->get_movement($id);
+        $movement = $this->get_movement($id); // Verifica si el movimiento existe antes de eliminarlo.
         if (!$movement) {
-            return false;
+            return false; // Retorna FALSE si el movimiento no existe.
         }
 
-        do_action('gpv_before_movement_delete', $id, $movement);
+        do_action('gpv_before_movement_delete', $id, $movement); // Ejecuta acción 'gpv_before_movement_delete' antes de eliminar.
 
-        return $this->wpdb->delete(
+        return $this->wpdb->delete( // Intenta eliminar el movimiento.
             $tabla,
-            ['id' => $id],
-            ['%d']
+            ['id' => $id], // Cláusula WHERE para identificar el movimiento a eliminar.
+            ['%d']        // Formato del ID (entero).
         );
     }
 
-    /**********************
-     * MÉTODOS DE CARGAS DE COMBUSTIBLE
-     **********************/
+    /**
+     * Sección de Métodos para la Gestión de Cargas de Combustible
+     * -----------------------------------------------------------
+     */
 
     /**
-     * Obtener listado de cargas de combustible con filtros opcionales
+     * Obtiene un listado de cargas de combustible con opciones de filtrado y ordenamiento.
      *
-     * @param array $args Argumentos para filtrar
-     * @return array Listado de cargas
+     * @param array $args Argumentos para filtrar y ordenar las cargas de combustible (opcional).
+     *                    - 'vehiculo_id': int, Filtra por ID del vehículo.
+     *                    - 'conductor_id': int, Filtra por ID del conductor.
+     *                    - 'fecha_desde': string (fecha), Filtra cargas desde esta fecha (fecha_carga >=).
+     *                    - 'fecha_hasta': string (fecha), Filtra cargas hasta esta fecha (fecha_carga <=).
+     *                    - 'estacion_servicio': string, Filtra por nombre de la estación de servicio.
+     *                    - 'search': string, Término de búsqueda para filtrar por siglas, nombre vehículo, estación de servicio o número de factura (LIKE).
+     *                    - 'orderby': string, Campo para ordenar (ej: 'fecha_carga').
+     *                    - 'order': string, Dirección de ordenamiento ('ASC' o 'DESC').
+     *                    - 'limit': int, Límite de resultados a obtener.
+     *                    - 'offset': int, Desplazamiento para la paginación.
+     * @return array Listado de cargas de combustible que cumplen con los criterios de búsqueda.
      */
     public function get_fuels($args = [])
     {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
+        $query = "SELECT * FROM {$tabla}"; // Inicia la consulta SQL.
+        $where_clauses = []; // Array para almacenar las cláusulas WHERE.
+        $prepare_args = []; // Array para almacenar argumentos para prepare.
 
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
+        // -- Construcción de cláusulas WHERE basadas en los argumentos --
         if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
             if (isset($args['vehiculo_id'])) {
-                $query .= $this->wpdb->prepare(" AND vehiculo_id = %d", $args['vehiculo_id']);
+                $where_clauses[] = 'vehiculo_id = %d';
+                $prepare_args[] = $args['vehiculo_id'];
             }
-
             if (isset($args['conductor_id'])) {
-                $query .= $this->wpdb->prepare(" AND conductor_id = %d", $args['conductor_id']);
+                $where_clauses[] = 'conductor_id = %d';
+                $prepare_args[] = $args['conductor_id'];
             }
-
             if (isset($args['fecha_desde'])) {
-                $query .= $this->wpdb->prepare(" AND fecha_carga >= %s", $args['fecha_desde']);
+                $where_clauses[] = 'fecha_carga >= %s';
+                $prepare_args[] = $args['fecha_desde'];
             }
-
             if (isset($args['fecha_hasta'])) {
-                $query .= $this->wpdb->prepare(" AND fecha_carga <= %s", $args['fecha_hasta']);
+                $where_clauses[] = 'fecha_carga <= %s';
+                $prepare_args[] = $args['fecha_hasta'];
             }
-
             if (isset($args['estacion_servicio'])) {
-                $query .= $this->wpdb->prepare(" AND estacion_servicio = %s", $args['estacion_servicio']);
+                $where_clauses[] = 'estacion_servicio = %s';
+                $prepare_args[] = $args['estacion_servicio'];
             }
-
             if (isset($args['search'])) {
                 $search = '%' . $this->wpdb->esc_like($args['search']) . '%';
-                $query .= $this->wpdb->prepare(
-                    " AND (vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR estacion_servicio LIKE %s OR numero_factura LIKE %s)",
-                    $search,
-                    $search,
-                    $search,
-                    $search
-                );
+                $where_clauses[] = "(vehiculo_siglas LIKE %s OR vehiculo_nombre LIKE %s OR estacion_servicio LIKE %s OR numero_factura LIKE %s)";
+                array_push($prepare_args, $search, $search, $search, $search); // Añade múltiples veces el mismo argumento para prepare.
             }
         }
-
-        // Ordenación
-        if (isset($args['orderby'])) {
-            $orderby = sanitize_sql_orderby($args['orderby']);
-            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY $orderby $order";
-        } else {
-            $query .= " ORDER BY fecha_carga DESC";
+        if (!empty($where_clauses)) { // Añade las cláusulas WHERE a la consulta si existen.
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
         }
 
-        // Límite
+        // -- Ordenamiento --
+        $orderby_allowed_values = ['id', 'vehiculo_id', 'vehiculo_siglas', 'vehiculo_nombre', 'odometro_carga', 'litros_cargados', 'precio', 'km_desde_ultima_carga', 'factor_consumo', 'conductor_id', 'estacion_servicio', 'numero_factura', 'fecha_carga', 'registrado_en', 'notas']; // Lista blanca de columnas ordenables.
+        $order_allowed_values = ['ASC', 'DESC'];
+        $orderby = isset($args['orderby']) && in_array($args['orderby'], $orderby_allowed_values) ? sanitize_sql_orderby($args['orderby']) : 'fecha_carga';
+        $order = isset($args['order']) && in_array(strtoupper($args['order']), $order_allowed_values) ? strtoupper($args['order']) : 'DESC';
+        $query .= " ORDER BY {$orderby} {$order}"; // Añade la cláusula ORDER BY a la consulta.
+
+
+        // -- Límite y Offset (Paginación) --
         if (isset($args['limit']) && is_numeric($args['limit'])) {
             $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-
             if (isset($args['offset']) && is_numeric($args['offset'])) {
                 $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
             }
         }
 
-        return $this->wpdb->get_results($query);
+        return $this->wpdb->get_results($this->wpdb->prepare($query, $prepare_args)); // Ejecuta la consulta preparada y retorna los resultados.
     }
 
     /**
-     * Obtener una carga de combustible por ID
+     * Obtiene la información de una carga de combustible específica por su ID.
      *
-     * @param int $id ID de la carga
-     * @return object|null Objeto con los datos de la carga o null si no existe
+     * @param int $id ID de la carga de combustible a obtener.
+     * @return object|null Objeto con los datos de la carga de combustible si se encuentra, NULL si no.
      */
     public function get_fuel($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
         return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE id = %d",
+            $this->wpdb->prepare( // Utiliza prepare para prevenir inyección SQL.
+                "SELECT * FROM {$tabla} WHERE id = %d",
                 $id
             )
         );
     }
 
     /**
-     * Insertar una nueva carga de combustible
+     * Inserta una nueva carga de combustible en la base de datos.
      *
-     * @param array $data Datos de la carga
-     * @return int|false ID de la carga insertada o false en caso de error
+     * @param array $data Datos de la carga de combustible a insertar.
+     *                    Debe incluir 'vehiculo_id', 'odometro_carga' y 'litros_cargados' como campos obligatorios.
+     *                    Establece 'fecha_carga' y 'registrado_en' por defecto si no se proporcionan.
+     * @return int|false ID de la carga de combustible insertada en caso de éxito, FALSE en caso de error.
      */
     public function insert_fuel($data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
-        // Asegurar que los campos obligatorios estén presentes
-        if (empty($data['vehiculo_id']) || empty($data['odometro_carga']) || empty($data['litros_cargados'])) {
-            return false;
+        if (empty($data['vehiculo_id']) || empty($data['odometro_carga']) || empty($data['litros_cargados'])) { // Valida campos obligatorios.
+            return false; // Retorna FALSE si faltan campos obligatorios.
         }
 
-        // Establecer valores por defecto
-        if (!isset($data['fecha_carga'])) {
-            $data['fecha_carga'] = current_time('mysql');
-        }
+        $data['fecha_carga'] = $data['fecha_carga'] ?? current_time('mysql'); // Establece fecha de carga por defecto si no se proporciona.
+        $data['registrado_en'] = $data['registrado_en'] ?? current_time('mysql'); // Establece fecha de registro por defecto si no se proporciona.
 
-        if (!isset($data['registrado_en'])) {
-            $data['registrado_en'] = current_time('mysql');
-        }
 
-        $result = $this->wpdb->insert($tabla, $data);
+        $result = $this->wpdb->insert($tabla, $data); // Intenta insertar la carga de combustible en la base de datos.
 
         if ($result) {
             $fuel_id = $this->wpdb->insert_id;
+            $vehiculo = $this->get_vehicle($data['vehiculo_id']); // Obtiene el vehículo asociado a la carga.
 
-            // Actualizar odómetro y nivel de combustible del vehículo
-            $vehiculo = $this->get_vehicle($data['vehiculo_id']);
+            if ($vehiculo) { // Si se encuentra el vehículo, actualiza su información.
+                $nuevo_nivel = min($vehiculo->capacidad_tanque, $vehiculo->nivel_combustible + $data['litros_cargados']); // Calcula el nuevo nivel de combustible.
 
-            if ($vehiculo) {
-                // Calcular nuevo nivel de combustible
-                // Calcular nuevo nivel de combustible en litros
-                $nuevo_nivel = min($vehiculo->capacidad_tanque, $vehiculo->nivel_combustible + $data['litros_cargados']);
-
-                $this->update_vehicle($data['vehiculo_id'], [
-                    'odometro_actual' => $data['odometro_carga'],
-                    'nivel_combustible' => $nuevo_nivel,
-                    'ultima_actualizacion' => current_time('mysql')
-                ]);
+                $this->update_vehicle( // Actualiza el vehículo con el nuevo odómetro y nivel de combustible.
+                    $data['vehiculo_id'],
+                    [
+                        'odometro_actual' => $data['odometro_carga'],     // Actualiza el odómetro del vehículo.
+                        'nivel_combustible' => $nuevo_nivel,            // Actualiza el nivel de combustible del vehículo.
+                        'ultima_actualizacion' => current_time('mysql')  // Actualiza la fecha de última actualización del vehículo.
+                    ]
+                );
             }
+            do_action('gpv_after_fuel_insert', $fuel_id, $data); // Ejecuta acción 'gpv_after_fuel_insert'.
 
-            do_action('gpv_after_fuel_insert', $fuel_id, $data);
-
-            return $fuel_id;
+            return $fuel_id; // Retorna el ID de la carga de combustible insertada.
         }
 
-        return false;
+        return false; // Retorna FALSE si la inserción falla.
     }
 
     /**
-     * Actualizar una carga de combustible
+     * Actualiza la información de una carga de combustible existente.
      *
-     * @param int $id ID de la carga
-     * @param array $data Datos a actualizar
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param int $id ID de la carga de combustible a actualizar.
+     * @param array $data Array asociativo con los datos a actualizar.
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function update_fuel($id, $data)
     {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
-        // Obtener carga actual para verificar cambios
-        $current_fuel = $this->get_fuel($id);
+        $current_fuel = $this->get_fuel($id); // Obtiene la carga de combustible actual para comparaciones.
         if (!$current_fuel) {
-            return false;
+            return false; // Retorna FALSE si la carga de combustible no existe.
         }
 
-        $result = $this->wpdb->update(
+        $result = $this->wpdb->update( // Intenta actualizar la carga de combustible en la base de datos.
             $tabla,
             $data,
-            ['id' => $id]
+            ['id' => $id] // Cláusula WHERE para identificar la carga de combustible a actualizar.
         );
 
         if ($result !== false) {
-            // Si cambiaron los litros cargados, actualizar el nivel de combustible del vehículo
-            if (isset($data['litros_cargados']) && $data['litros_cargados'] != $current_fuel->litros_cargados) {
-                $vehiculo = $this->get_vehicle($current_fuel->vehiculo_id);
+            if (isset($data['litros_cargados']) && $data['litros_cargados'] != $current_fuel->litros_cargados) { // Si se modifican los litros cargados.
+                $vehiculo = $this->get_vehicle($current_fuel->vehiculo_id); // Obtiene el vehículo asociado a la carga.
 
-                if ($vehiculo) {
-                    // Restar el valor anterior
-                    // Restar el valor anterior en litros
-                    $nivel_previo = $vehiculo->nivel_combustible - $current_fuel->litros_cargados;
-                    // Sumar el nuevo valor en litros
-                    $nuevo_nivel = min($vehiculo->capacidad_tanque, $nivel_previo + $data['litros_cargados']);
+                if ($vehiculo) { // Si se encuentra el vehículo, actualiza su nivel de combustible.
+                    $nivel_previo = $vehiculo->nivel_combustible - $current_fuel->litros_cargados; // Calcula el nivel previo restando los litros originales.
+                    $nuevo_nivel = min($vehiculo->capacidad_tanque, $nivel_previo + $data['litros_cargados']); // Calcula el nuevo nivel sumando los nuevos litros.
 
 
-                    $this->update_vehicle($current_fuel->vehiculo_id, [
-                        'nivel_combustible' => $nuevo_nivel,
-                        'ultima_actualizacion' => current_time('mysql')
-                    ]);
+                    $this->update_vehicle( // Actualiza el vehículo con el nuevo nivel de combustible.
+                        $current_fuel->vehiculo_id,
+                        [
+                            'nivel_combustible' => $nuevo_nivel,           // Actualiza el nivel de combustible del vehículo.
+                            'ultima_actualizacion' => current_time('mysql') // Actualiza la fecha de última actualización del vehículo.
+                        ]
+                    );
                 }
             }
-
-            do_action('gpv_after_fuel_update', $id, $data, $current_fuel);
+            do_action('gpv_after_fuel_update', $id, $data, $current_fuel); // Ejecuta acción 'gpv_after_fuel_update'.
         }
 
-        return $result;
+        return $result; // Retorna el resultado de la operación update.
     }
 
     /**
-     * Eliminar una carga de combustible
+     * Elimina una carga de combustible de la base de datos.
      *
-     * @param int $id ID de la carga
-     * @return int|false Número de filas eliminadas o false en caso de error
+     * @param int $id ID de la carga de combustible a eliminar.
+     * @return int|false Número de filas eliminadas en caso de éxito, FALSE en caso de error.
      */
     public function delete_fuel($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_cargas';
 
-        // Verificar si la carga existe
-        $fuel = $this->get_fuel($id);
+        $fuel = $this->get_fuel($id); // Verifica si la carga de combustible existe antes de eliminarla.
         if (!$fuel) {
-            return false;
+            return false; // Retorna FALSE si la carga de combustible no existe.
         }
 
-        do_action('gpv_before_fuel_delete', $id, $fuel);
+        do_action('gpv_before_fuel_delete', $id, $fuel); // Ejecuta acción 'gpv_before_fuel_delete' antes de eliminar.
 
-        return $this->wpdb->delete(
+        return $this->wpdb->delete( // Intenta eliminar la carga de combustible.
             $tabla,
-            ['id' => $id],
-            ['%d']
+            ['id' => $id], // Cláusula WHERE para identificar la carga de combustible a eliminar.
+            ['%d']        // Formato del ID (entero).
         );
     }
+
     /**
-     * Eliminar un reporte de movimiento
+     * Sección de Métodos para la Gestión de Reportes de Movimientos
+     * -------------------------------------------------------------
+     */
+
+
+    /**
+     * Obtiene un listado de reportes de movimientos con opciones de filtrado y ordenamiento.
      *
-     * @param int $id ID del reporte
-     * @return int|false Número de filas eliminadas o false en caso de error
+     * @param array $args Argumentos para filtrar y ordenar los reportes (opcional).
+     *                    - 'reporte_id': int, Filtra por ID del reporte.
+     *                    - 'vehiculo_id': int, Filtra por ID del vehículo asociado al reporte.
+     *                    - 'estado': string, Filtra por estado del reporte (ej: 'pendiente', 'aprobado').
+     *                    - 'fecha_desde': string (fecha), Filtra reportes desde esta fecha de reporte (fecha_reporte >=).
+     *                    - 'fecha_hasta': string (fecha), Filtra reportes hasta esta fecha de reporte (fecha_reporte <=).
+     *                    - 'orderby': string, Campo para ordenar (ej: 'fecha_reporte').
+     *                    - 'order': string, Dirección de ordenamiento ('ASC' o 'DESC').
+     *                    - 'limit': int, Límite de resultados a obtener.
+     *                    - 'offset': int, Desplazamiento para la paginación.
+     * @return array Listado de reportes de movimientos que cumplen con los criterios de búsqueda.
+     */
+    public function obtener_reportes_movimientos($args = [])
+    {
+        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+        $query = "SELECT * FROM {$tabla}"; // Inicia la consulta SQL.
+        $where_clauses = []; // Array para almacenar las cláusulas WHERE.
+        $prepare_args = []; // Array para almacenar argumentos para prepare.
+
+        // -- Construcción de cláusulas WHERE basadas en los argumentos --
+        if (!empty($args)) {
+            if (isset($args['reporte_id'])) {
+                $where_clauses[] = 'id = %d';
+                $prepare_args[] = $args['reporte_id'];
+            }
+            if (isset($args['vehiculo_id'])) {
+                $where_clauses[] = 'vehiculo_id = %d';
+                $prepare_args[] = $args['vehiculo_id'];
+            }
+            if (isset($args['estado'])) {
+                $where_clauses[] = 'estado = %s';
+                $prepare_args[] = $args['estado'];
+            }
+            if (isset($args['fecha_desde'])) {
+                $where_clauses[] = 'fecha_reporte >= %s';
+                $prepare_args[] = $args['fecha_desde'];
+            }
+            if (isset($args['fecha_hasta'])) {
+                $where_clauses[] = 'fecha_reporte <= %s';
+                $prepare_args[] = $args['fecha_hasta'];
+            }
+        }
+        if (!empty($where_clauses)) { // Añade las cláusulas WHERE a la consulta si existen.
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
+        }
+
+        // -- Ordenamiento --
+        $orderby_allowed_values = ['id', 'vehiculo_id', 'fecha_reporte', 'estado', 'creado_en']; // Lista blanca de columnas ordenables.
+        $order_allowed_values = ['ASC', 'DESC'];
+
+        $orderby = isset($args['orderby']) && in_array($args['orderby'], $orderby_allowed_values) ? sanitize_sql_orderby($args['orderby']) : 'fecha_reporte';
+        $order = isset($args['order']) && in_array(strtoupper($args['order']), $order_allowed_values) ? strtoupper($args['order']) : 'DESC';
+        $query .= " ORDER BY {$orderby} {$order}"; // Añade la cláusula ORDER BY a la consulta.
+
+        // -- Límite y Offset (Paginación) --
+        if (isset($args['limit']) && is_numeric($args['limit'])) {
+            $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
+            if (isset($args['offset']) && is_numeric($args['offset'])) {
+                $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
+            }
+        }
+
+        return $this->wpdb->get_results($this->wpdb->prepare($query, $prepare_args)); // Ejecuta la consulta preparada y retorna los resultados.
+    }
+
+
+
+    /**
+     * Elimina un reporte de movimiento de la base de datos.
+     *
+     * @param int $id ID del reporte de movimiento a eliminar.
+     * @return int|false Número de filas eliminadas en caso de éxito, FALSE en caso de error.
      */
     public function delete_reporte($id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
 
-        return $this->wpdb->delete(
+        return $this->wpdb->delete( // Intenta eliminar el reporte de movimiento.
             $tabla,
-            ['id' => $id],
-            ['%d']
+            ['id' => $id], // Cláusula WHERE para identificar el reporte a eliminar.
+            ['%d']        // Formato del ID (entero).
         );
     }
 
     /**
-     * Desmarcar un movimiento como reportado
+     * Desmarca un movimiento como reportado, revirtiendo el estado y eliminando la referencia al reporte.
      *
-     * @param int $movimiento_id ID del movimiento
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param int $movimiento_id ID del movimiento a desmarcar como reportado.
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function desmarcar_movimiento_reportado($movimiento_id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_movimientos';
 
-        return $this->wpdb->update(
+        return $this->wpdb->update( // Intenta actualizar el movimiento en la base de datos.
             $tabla,
             [
-                'reportado' => 0,
-                'reporte_id' => null
+                'reportado' => 0,    // Establece 'reportado' a 0 (no reportado).
+                'reporte_id' => null // Elimina la referencia al reporte (establece reporte_id a NULL).
             ],
-            ['id' => $movimiento_id],
-            ['%d', '%d'],
-            ['%d']
+            ['id' => $movimiento_id], // Cláusula WHERE para identificar el movimiento a desmarcar.
+            ['%d', '%d'],          // Formatos de los valores a actualizar (entero, entero).
+            ['%d']                 // Formato del ID (entero).
         );
     }
+
     /**
-     * Actualizar el estado de un reporte y opcionalmente su archivo PDF
+     * Actualiza el estado de un reporte de movimiento y opcionalmente su archivo PDF asociado.
      *
-     * @param int $reporte_id ID del reporte
-     * @param string $estado Nuevo estado del reporte
-     * @param string|null $archivo_pdf Nombre del archivo PDF generado (opcional)
-     * @return int|false Número de filas actualizadas o false en caso de error
+     * @param int $reporte_id ID del reporte de movimiento a actualizar.
+     * @param string $estado Nuevo estado del reporte (ej: 'pendiente', 'aprobado').
+     * @param string|null $archivo_pdf Nombre del archivo PDF generado para el reporte (opcional).
+     * @return int|false Número de filas actualizadas en caso de éxito, FALSE en caso de error.
      */
     public function update_reporte_estado($reporte_id, $estado, $archivo_pdf = null)
     {
         $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
 
-        $data = [
-            'estado' => $estado
+        $data = [ // Datos a actualizar.
+            'estado' => $estado // Actualiza el estado del reporte.
         ];
 
-        if ($archivo_pdf) {
+        if ($archivo_pdf) { // Si se proporciona nombre de archivo PDF, lo incluye en la actualización.
             $data['archivo_pdf'] = $archivo_pdf;
         }
 
-        return $this->wpdb->update(
+        return $this->wpdb->update( // Intenta actualizar el reporte en la base de datos.
             $tabla,
             $data,
-            ['id' => $reporte_id]
+            ['id' => $reporte_id] // Cláusula WHERE para identificar el reporte a actualizar.
         );
     }
 
     /**
-     * Obtener un reporte específico por ID
+     * Obtiene un reporte de movimiento específico por su ID.
      *
-     * @param int $reporte_id ID del reporte
-     * @return object|null Objeto con los datos del reporte o null si no existe
+     * @param int $reporte_id ID del reporte de movimiento a obtener.
+     * @return object|null Objeto con los datos del reporte de movimiento si se encuentra, NULL si no.
      */
     public function get_reporte($reporte_id)
     {
         $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
 
         return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE id = %d",
+            $this->wpdb->prepare( // Utiliza prepare para prevenir inyección SQL.
+                "SELECT * FROM {$tabla} WHERE id = %d",
                 $reporte_id
             )
         );
     }
 
-
-
     /**
-     * Obtener movimientos elegibles para reporte
+     * Obtiene movimientos elegibles para ser incluidos en un reporte.
      *
-     * @param string $fecha_reporte Fecha para el reporte
-     * @return array Lista de movimientos elegibles
+     * Los movimientos elegibles son aquellos que no han sido reportados previamente.
+     *
+     * @param string $fecha_reporte Fecha para la que se genera el reporte (actualmente no utilizada en la consulta).
+     * @return array Lista de movimientos elegibles para reporte.
      */
-    // Modificación a includes/class-gpv-database.php
     public function get_movimientos_para_reporte($fecha_reporte)
     {
         $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
-        $tabla_vehiculos = $this->wpdb->prefix . 'gpv_vehiculos';
-
-        // Verificar si existe la columna reportado
-        $reportado_exists = false;
-        $columns = $this->wpdb->get_results("SHOW COLUMNS FROM $tabla_movimientos");
-        foreach ($columns as $column) {
-            if ($column->Field === 'reportado') {
-                $reportado_exists = true;
-                break;
-            }
-        }
-
-        // Construir la consulta según la disponibilidad de la columna
-        if ($reportado_exists) {
-            $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
-            FROM $tabla_movimientos m
-            JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
-            WHERE m.estado = 'completado'
-            AND m.reportado = 0
-            AND m.distancia_recorrida IS NOT NULL
-            ORDER BY v.id, m.hora_salida";
-        } else {
-            // Consulta alternativa sin el filtro de reportado
-            $query = "SELECT m.*, v.siglas, v.nombre_vehiculo
-            FROM $tabla_movimientos m
-            JOIN $tabla_vehiculos v ON m.vehiculo_id = v.id
-            WHERE m.estado = 'completado'
-            AND m.distancia_recorrida IS NOT NULL
-            ORDER BY v.id, m.hora_salida";
-        }
-
-        // Ejecutar la consulta
-        try {
-            $movimientos = $this->wpdb->get_results($query);
-        } catch (Exception $e) {
-            error_log('Error en consulta get_movimientos_para_reporte: ' . $e->getMessage());
-            return [];
-        }
-
-        // Si no hay movimientos, devolver array vacío
-        if (empty($movimientos)) {
-            return [];
-        }
-
-        // Agrupar por vehículo
-        $por_vehiculo = [];
-        foreach ($movimientos as $mov) {
-            if (!isset($por_vehiculo[$mov->vehiculo_id])) {
-                $por_vehiculo[$mov->vehiculo_id] = [];
-            }
-            $por_vehiculo[$mov->vehiculo_id][] = $mov;
-        }
-
-        // Procesar cada vehículo para acumular movimientos
-        $elegibles = [];
-
-        foreach ($por_vehiculo as $vehiculo_id => $movs) {
-            // Acumular TODOS los movimientos del vehículo
-            $acumulado = [];
-            $distancia_total = 0;
-            $primer_mov = null;
-            $ultimo_mov = null;
-
-            foreach ($movs as $mov) {
-                if (empty($primer_mov)) {
-                    $primer_mov = $mov;
-                }
-
-                $ultimo_mov = $mov;
-                $distancia_total += floatval($mov->distancia_recorrida);
-                $acumulado[] = $mov;
-            }
-
-            // Si hay movimientos acumulados, verificar si califican para reporte
-            if (!empty($acumulado)) {
-                // Criterios para incluir en el reporte:
-                // 1. Distancia total es de al menos 30 km O
-                // 2. Han pasado más de 7 días desde el primer movimiento O
-                // 3. Hay al menos 3 movimientos acumulados
-
-                $dias_pasados = 0;
-                if (isset($primer_mov->hora_salida)) {
-                    $dias_pasados = (time() - strtotime($primer_mov->hora_salida)) / (60 * 60 * 24);
-                }
-
-                if ($distancia_total >= 30 || $dias_pasados > 7 || count($acumulado) >= 3) {
-                    // Crear objeto para el reporte
-                    $elegible = new stdClass();
-                    $elegible->id = implode(',', array_map(function ($m) {
-                        return $m->id;
-                    }, $acumulado));
-                    $elegible->vehiculo_id = $vehiculo_id;
-                    $elegible->vehiculo_siglas = $ultimo_mov->siglas;
-                    $elegible->vehiculo_nombre = $ultimo_mov->nombre_vehiculo;
-                    $elegible->odometro_inicial = $primer_mov->odometro_salida;
-                    $elegible->odometro_final = $ultimo_mov->odometro_entrada;
-
-                    $elegible->fecha_inicial = isset($primer_mov->hora_salida)
-                        ? date('Y-m-d', strtotime($primer_mov->hora_salida))
-                        : $fecha_reporte;
-                    $elegible->hora_inicial = isset($primer_mov->hora_salida)
-                        ? date('H:i:s', strtotime($primer_mov->hora_salida))
-                        : '00:00:00';
-
-                    $elegible->fecha_final = isset($ultimo_mov->hora_entrada)
-                        ? date('Y-m-d', strtotime($ultimo_mov->hora_entrada))
-                        : $fecha_reporte;
-                    $elegible->hora_final = isset($ultimo_mov->hora_entrada)
-                        ? date('H:i:s', strtotime($ultimo_mov->hora_entrada))
-                        : '23:59:59';
-
-                    $elegible->distancia_total = $distancia_total;
-                    $elegible->conductor = isset($ultimo_mov->conductor) ? $ultimo_mov->conductor : '';
-                    $elegible->conductor_id = isset($ultimo_mov->conductor_id) ? $ultimo_mov->conductor_id : 0;
-
-                    $elegibles[] = $elegible;
-                }
-            }
-        }
-
-        return $elegibles;
-    }
-
-
-    /**
-     * Actualizar firmante autorizado
-     *
-     * @param int $id ID del firmante
-     * @param array $data Datos a actualizar
-     * @return int|false Número de filas actualizadas o false en caso de error
-     */
-    public function update_firmante($id, $data)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
-
-        return $this->wpdb->update(
-            $tabla,
-            $data,
-            ['id' => $id]
+        $query = $this->wpdb->prepare(
+            "SELECT * FROM {$tabla_movimientos}
+            WHERE reportado = 0
+              AND hora_entrada IS NOT NULL
+              AND distancia_recorrida > 30" // Criterios de elegibilidad: No reportado, con hora de entrada y distancia > 30km (ejemplo).
         );
+
+        return $this->wpdb->get_results($query); // Ejecuta la consulta y retorna los movimientos elegibles.
     }
 
     /**
-     * Eliminar firmante autorizado
+     * Obtiene la lista de firmantes autorizados activos.
      *
-     * @param int $id ID del firmante
-     * @return int|false Número de filas eliminadas o false en caso de error
-     */
-    public function delete_firmante($id)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
-
-        return $this->wpdb->delete(
-            $tabla,
-            ['id' => $id],
-            ['%d']
-        );
-    }
-
-    /**********************
-     * MÉTODOS DE USUARIO
-     **********************/
-
-    /**
-     * Obtener datos de usuario GPV por ID de usuario WordPress
+     * Utilizado para poblar los selectores de firmantes en los formularios de reportes.
      *
-     * @param int $wp_user_id ID del usuario en WordPress
-     * @return object|null Datos del usuario GPV o null si no existe
-     */
-    public function get_user_data($wp_user_id)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-
-        return $this->wpdb->get_row(
-            $this->wpdb->prepare(
-                "SELECT * FROM $tabla WHERE wp_user_id = %d",
-                $wp_user_id
-            )
-        );
-    }
-
-    /**
-     * Insertar o actualizar datos de usuario GPV
-     *
-     * @param int $wp_user_id ID del usuario en WordPress
-     * @param array $data Datos del usuario GPV
-     * @return int|false ID del registro insertado/actualizado o false en caso de error
-     */
-    public function update_user_data($wp_user_id, $data)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-
-        // Verificar si el usuario existe
-        $user_exists = $this->get_user_data($wp_user_id);
-
-        if ($user_exists) {
-            // Actualizar
-            $result = $this->wpdb->update(
-                $tabla,
-                $data,
-                ['wp_user_id' => $wp_user_id]
-            );
-
-            return ($result !== false) ? $user_exists->id : false;
-        } else {
-            // Insertar
-            $data['wp_user_id'] = $wp_user_id;
-            $result = $this->wpdb->insert($tabla, $data);
-
-            return ($result) ? $this->wpdb->insert_id : false;
-        }
-    }
-
-    /**
-     * Actualizar última actividad de usuario
-     *
-     * @param int $wp_user_id ID del usuario en WordPress
-     * @return bool Éxito de la operación
-     */
-    public function update_user_activity($wp_user_id)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_usuarios';
-
-        $user_exists = $this->get_user_data($wp_user_id);
-
-        if ($user_exists) {
-            $result = $this->wpdb->update(
-                $tabla,
-                ['ultima_actividad' => current_time('mysql')],
-                ['wp_user_id' => $wp_user_id]
-            );
-
-            return $result !== false;
-        } else {
-            $result = $this->wpdb->insert(
-                $tabla,
-                [
-                    'wp_user_id' => $wp_user_id,
-                    'ultima_actividad' => current_time('mysql')
-                ]
-            );
-
-            return $result !== false;
-        }
-    }
-
-    /**********************
-     * MÉTODOS ESTADÍSTICOS
-     **********************/
-
-    /**
-     * Obtener estadísticas generales para el dashboard
-     *
-     * @return array Estadísticas generales
-     */
-    public function get_dashboard_stats()
-    {
-        // Fechas para filtros
-        $today = date('Y-m-d');
-        $month_start = date('Y-m-01');
-        $year_start = date('Y-01-01');
-
-        // Estadísticas de vehículos
-        $vehicles_stats = [
-            'total' => 0,
-            'available' => 0,
-            'in_use' => 0,
-            'maintenance' => 0
-        ];
-
-        $vehicles = $this->get_vehicles();
-        $vehicles_stats['total'] = count($vehicles);
-
-        foreach ($vehicles as $vehicle) {
-            switch ($vehicle->estado) {
-                case 'disponible':
-                    $vehicles_stats['available']++;
-                    break;
-                case 'en_uso':
-                    $vehicles_stats['in_use']++;
-                    break;
-                case 'mantenimiento':
-                    $vehicles_stats['maintenance']++;
-                    break;
-            }
-        }
-
-        // Estadísticas de movimientos
-        $movements_today = $this->get_movements([
-            'fecha_desde' => $today . ' 00:00:00',
-            'fecha_hasta' => $today . ' 23:59:59'
-        ]);
-
-        $movements_month = $this->get_movements([
-            'fecha_desde' => $month_start . ' 00:00:00',
-            'fecha_hasta' => $today . ' 23:59:59'
-        ]);
-
-        $total_distance = 0;
-        foreach ($movements_month as $movement) {
-            $total_distance += (float)$movement->distancia_recorrida;
-        }
-
-        $active_movements = $this->get_movements([
-            'estado' => 'en_progreso'
-        ]);
-
-        $movements_stats = [
-            'today' => count($movements_today),
-            'month' => count($movements_month),
-            'total_distance' => $total_distance,
-            'active' => count($active_movements)
-        ];
-
-        // Estadísticas de combustible
-        $fuels_month = $this->get_fuels([
-            'fecha_desde' => $month_start,
-            'fecha_hasta' => $today
-        ]);
-
-        $month_consumption = 0;
-        $month_cost = 0;
-        foreach ($fuels_month as $fuel) {
-            $month_consumption += (float)$fuel->litros_cargados;
-            $month_cost += (float)$fuel->litros_cargados * (float)$fuel->precio;
-        }
-
-        $average_consumption = ($total_distance > 0 && $month_consumption > 0) ?
-            $total_distance / $month_consumption : 0;
-
-        $fuel_stats = [
-            'month_consumption' => $month_consumption,
-            'month_cost' => $month_cost,
-            'average_consumption' => $average_consumption
-        ];
-
-
-
-        // Obtener movimientos recientes para el dashboard
-        $recent_movements = $this->get_movements([
-            'limit' => 5,
-            'orderby' => 'creado_en',
-            'order' => 'DESC'
-        ]);
-
-        return [
-            'vehicles' => $vehicles_stats,
-            'movements' => $movements_stats,
-            'fuel' => $fuel_stats,
-            'recentMovements' => $recent_movements,
-            'last_update' => current_time('mysql')
-        ];
-    }
-
-    /**
-     * Obtener estadísticas de uso de vehículos
-     *
-     * @param string $period Periodo (month, year, all)
-     * @return array Estadísticas de uso
-     */
-    public function get_vehicle_usage_stats($period = 'month')
-    {
-        // Determinar fechas según periodo
-        $today = date('Y-m-d');
-
-        switch ($period) {
-            case 'month':
-                $start_date = date('Y-m-01');
-                break;
-            case 'year':
-                $start_date = date('Y-01-01');
-                break;
-            case 'all':
-            default:
-                $start_date = '1970-01-01';
-                break;
-        }
-
-        $vehicles = $this->get_vehicles();
-        $stats = [];
-
-        foreach ($vehicles as $vehicle) {
-            // Obtener movimientos para este vehículo en el periodo
-            $movements = $this->get_movements([
-                'vehiculo_id' => $vehicle->id,
-                'fecha_desde' => $start_date . ' 00:00:00',
-                'fecha_hasta' => $today . ' 23:59:59'
-            ]);
-
-            // Calcular distancia total, tiempo de uso y combustible
-            $total_distance = 0;
-            $total_fuel = 0;
-            $total_usage_hours = 0;
-
-            foreach ($movements as $movement) {
-                if ($movement->estado === 'completado' && !empty($movement->distancia_recorrida)) {
-                    $total_distance += (float)$movement->distancia_recorrida;
-
-                    if (!empty($movement->combustible_consumido)) {
-                        $total_fuel += (float)$movement->combustible_consumido;
-                    }
-
-                    // Calcular horas de uso si hay hora de entrada y salida
-                    if (!empty($movement->hora_entrada) && !empty($movement->hora_salida)) {
-                        $entrada = new DateTime($movement->hora_entrada);
-                        $salida = new DateTime($movement->hora_salida);
-                        $diferencia = $entrada->diff($salida);
-                        $horas = $diferencia->h + ($diferencia->days * 24);
-                        $total_usage_hours += $horas;
-                    }
-                }
-            }
-
-            // Calcular consumo promedio
-            $avg_consumption = ($total_distance > 0 && $total_fuel > 0) ?
-                $total_distance / $total_fuel : 0;
-
-            // Obtener cargas de combustible
-            $fuels = $this->get_fuels([
-                'vehiculo_id' => $vehicle->id,
-                'fecha_desde' => $start_date,
-                'fecha_hasta' => $today
-            ]);
-
-            $total_recharges = count($fuels);
-            $total_cost = 0;
-
-            foreach ($fuels as $fuel) {
-                $total_cost += (float)$fuel->litros_cargados * (float)$fuel->precio;
-            }
-
-
-
-
-            // Guardar estadísticas
-            $stats[$vehicle->id] = [
-                'id' => $vehicle->id,
-                'siglas' => $vehicle->siglas,
-                'nombre' => $vehicle->nombre_vehiculo,
-                'total_movements' => count($movements),
-                'total_distance' => $total_distance,
-                'total_fuel' => $total_fuel,
-                'total_usage_hours' => $total_usage_hours,
-                'avg_consumption' => $avg_consumption,
-                'total_recharges' => $total_recharges,
-                'total_fuel_cost' => $total_cost,
-
-                'cost_per_km' => ($total_distance > 0) ?
-                    $total_cost / $total_distance : 0
-            ];
-        }
-
-        return $stats;
-    }
-
-    /**
-     * Obtener lista de firmantes autorizados
-     *
-     * @param array $args Argumentos para filtrar
-     * @return array Lista de firmantes
+     * @param array $args Argumentos para filtrar los firmantes (opcional).
+     *                   - 'activo': int (0 o 1), Filtra por estado activo del firmante.
+     * @return array Lista de firmantes autorizados que cumplen con los criterios de búsqueda.
      */
     public function get_firmantes($args = [])
     {
-        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
+        $tabla_firmantes = $this->wpdb->prefix . 'gpv_firmantes_autorizados'; // Asume nombre de tabla de firmantes.
+        $query = "SELECT * FROM {$tabla_firmantes}"; // Consulta base.
+        $where_clauses = []; // Cláusulas WHERE.
+        $prepare_args = []; // Argumentos para prepare.
 
-        // Comprobar si la tabla existe
-        if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
-            return array(); // Devolver array vacío si la tabla no existe
-        }
-
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
         if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
             if (isset($args['activo'])) {
-                $query .= $this->wpdb->prepare(" AND activo = %d", $args['activo']);
+                $where_clauses[] = 'activo = %d';
+                $prepare_args[] = $args['activo'];
             }
-
-            if (isset($args['id'])) {
-                $query .= $this->wpdb->prepare(" AND id = %d", $args['id']);
-            }
+            // Se pueden añadir más filtros aquí si es necesario.
         }
 
-        // Ordenación
-        $query .= " ORDER BY nombre ASC";
+        if (!empty($where_clauses)) { // Añade cláusulas WHERE si existen.
+            $query .= " WHERE " . implode(' AND ', $where_clauses);
+        }
 
-        return $this->wpdb->get_results($query);
+        return $this->wpdb->get_results($this->wpdb->prepare($query, $prepare_args)); // Ejecuta consulta preparada y retorna firmantes.
     }
-
     /**
-     * Insertar un nuevo firmante autorizado
+     * Inserta un nuevo reporte de movimiento en la base de datos.
      *
-     * @param array $data Datos del firmante
-     * @return int|false ID del firmante insertado o false en caso de error
-     */
-    public function insert_firmante($data)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_firmantes_autorizados';
-
-        // Comprobar si la tabla existe
-        if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
-            // Intentar crear la tabla
-            $this->update_database_structure();
-
-            // Verificar si se creó correctamente
-            if ($this->wpdb->get_var("SHOW TABLES LIKE '$tabla'") != $tabla) {
-                return false;
-            }
-        }
-
-        // Valores por defecto
-        $defaults = [
-            'activo' => 1,
-            'fecha_creacion' => current_time('mysql')
-        ];
-
-        $data = wp_parse_args($data, $defaults);
-
-        $result = $this->wpdb->insert($tabla, $data);
-
-        if ($result) {
-            return $this->wpdb->insert_id;
-        }
-
-        return false;
-    }
-
-    /**
-     * Obtener reportes de movimientos
-     *
-     * @param array $args Argumentos para filtrar
-     * @return array Lista de reportes
-     */
-    public function get_reportes_movimientos($args = [])
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
-
-        $query = "SELECT * FROM $tabla";
-
-        // Filtros
-        if (!empty($args)) {
-            $query .= " WHERE 1=1";
-
-            if (isset($args['fecha_reporte'])) {
-                $query .= $this->wpdb->prepare(" AND fecha_reporte = %s", $args['fecha_reporte']);
-            }
-
-            if (isset($args['estado'])) {
-                $query .= $this->wpdb->prepare(" AND estado = %s", $args['estado']);
-            }
-
-            if (isset($args['vehiculo_id'])) {
-                $query .= $this->wpdb->prepare(" AND vehiculo_id = %d", $args['vehiculo_id']);
-            }
-        }
-
-        // Ordenación
-        if (isset($args['orderby'])) {
-            $orderby = sanitize_sql_orderby($args['orderby']);
-            $order = isset($args['order']) && strtoupper($args['order']) === 'DESC' ? 'DESC' : 'ASC';
-            $query .= " ORDER BY $orderby $order";
-        } else {
-            $query .= " ORDER BY fecha_reporte DESC, vehiculo_nombre ASC";
-        }
-
-        // Límite
-        if (isset($args['limit']) && is_numeric($args['limit'])) {
-            $query .= $this->wpdb->prepare(" LIMIT %d", $args['limit']);
-
-            if (isset($args['offset']) && is_numeric($args['offset'])) {
-                $query .= $this->wpdb->prepare(" OFFSET %d", $args['offset']);
-            }
-        }
-
-        return $this->wpdb->get_results($query);
-    }
-
-    /**
-     * Insertar un nuevo reporte de movimiento
-     *
-     * @param array $data Datos del reporte
-     * @return int|false ID del reporte insertado o false en caso de error
+     * @param array $data Datos del reporte a insertar.
+     * @return int|false ID del reporte insertado en caso de éxito, FALSE en caso de error.
      */
     public function insert_reporte_movimiento($data)
     {
-        $tabla = $this->wpdb->prefix . 'gpv_reportes_movimientos';
+        $tabla_reportes_movimientos = $this->wpdb->prefix . 'gpv_reportes_movimientos';
 
-        // Valores por defecto
-        $defaults = [
-            'estado' => 'pendiente',
-            'creado_en' => current_time('mysql')
-        ];
-
-        $data = wp_parse_args($data, $defaults);
-
-        $result = $this->wpdb->insert($tabla, $data);
+        $result = $this->wpdb->insert($tabla_reportes_movimientos, $data);
 
         if ($result) {
             $reporte_id = $this->wpdb->insert_id;
 
-            // Actualizar los movimientos incluidos
-            if (isset($data['movimientos_incluidos']) && !empty($data['movimientos_incluidos'])) {
-                $movimientos_ids = explode(',', $data['movimientos_incluidos']);
-                foreach ($movimientos_ids as $movimiento_id) {
-                    $this->marcar_movimiento_reportado($movimiento_id, $reporte_id);
-                }
+            // Marcar movimientos como reportados y asociarlos al reporte
+            $movimiento_ids = explode(',', $data['movimientos_incluidos']);
+            $tabla_movimientos = $this->wpdb->prefix . 'gpv_movimientos';
+            foreach ($movimiento_ids as $movimiento_id) {
+                $this->wpdb->update(
+                    $tabla_movimientos,
+                    ['reportado' => 1, 'reporte_id' => $reporte_id],
+                    ['id' => $movimiento_id],
+                    ['%d', '%d'],
+                    ['%d']
+                );
             }
-
             return $reporte_id;
         }
-
         return false;
-    }
-
-    /**
-     * Marcar un movimiento como reportado
-     *
-     * @param int $movimiento_id ID del movimiento
-     * @param int $reporte_id ID del reporte
-     * @return int|false Número de filas actualizadas o false en caso de error
-     */
-    public function marcar_movimiento_reportado($movimiento_id, $reporte_id)
-    {
-        $tabla = $this->wpdb->prefix . 'gpv_movimientos';
-
-        return $this->wpdb->update(
-            $tabla,
-            [
-                'reportado' => 1,
-                'reporte_id' => $reporte_id
-            ],
-            ['id' => $movimiento_id],
-            ['%d', '%d'],
-            ['%d']
-        );
-    }
-    /**
-     * Actualizar la estructura de la base de datos manualmente
-     */
-    public function update_database_structure()
-    {
-        global $wpdb;
-        $charset_collate = $wpdb->get_charset_collate();
-
-        // Añadir a la función update_database_structure() en GPV_Database:
-        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
-
-        // Verificar si existe la columna archivo_pdf
-        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'archivo_pdf'") != 'archivo_pdf') {
-            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN archivo_pdf varchar(255) DEFAULT NULL");
-        }
-
-        // Verificar si existe la columna proposito
-        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'proposito'") != 'proposito') {
-            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN proposito varchar(100) DEFAULT NULL");
-        }
-
-        // Verificar si existe la columna firmante2_id en la tabla de reportes
-        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
-
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_reportes'") == $tabla_reportes) {
-            if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'firmante2_id'") != 'firmante2_id') {
-                $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN firmante2_id mediumint(9) DEFAULT NULL");
-            }
-        }
-        // Verificar si existe la columna archivo_pdf en la tabla de reportes
-        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_reportes LIKE 'archivo_pdf'") != 'archivo_pdf') {
-            $wpdb->query("ALTER TABLE $tabla_reportes ADD COLUMN archivo_pdf varchar(255) DEFAULT NULL");
-        }
-        // Crear tabla de firmantes si no existe
-        $tabla_firmantes = $wpdb->prefix . 'gpv_firmantes_autorizados';
-
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_firmantes'") != $tabla_firmantes) {
-            $sql = "CREATE TABLE $tabla_firmantes (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            nombre varchar(100) NOT NULL,
-            cargo varchar(100) NOT NULL,
-            grado varchar(50) DEFAULT NULL,
-            numero_empleado varchar(20) DEFAULT NULL,
-            activo tinyint(1) DEFAULT 1,
-            notas text DEFAULT NULL,
-            fecha_creacion datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
-        ) $charset_collate;";
-
-            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-            dbDelta($sql);
-        }
-
-        // Agregar columna reportado si no existe
-        $tabla_movimientos = $wpdb->prefix . 'gpv_movimientos';
-
-        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_movimientos LIKE 'reportado'") != 'reportado') {
-            $wpdb->query("ALTER TABLE $tabla_movimientos ADD COLUMN reportado tinyint(1) DEFAULT 0");
-        }
-
-        // Agregar columna reporte_id si no existe
-        if ($wpdb->get_var("SHOW COLUMNS FROM $tabla_movimientos LIKE 'reporte_id'") != 'reporte_id') {
-            $wpdb->query("ALTER TABLE $tabla_movimientos ADD COLUMN reporte_id mediumint(9) DEFAULT NULL");
-        }
-
-        // Crear tabla de reportes si no existe
-        $tabla_reportes = $wpdb->prefix . 'gpv_reportes_movimientos';
-
-        if ($wpdb->get_var("SHOW TABLES LIKE '$tabla_reportes'") != $tabla_reportes) {
-            $sql = "CREATE TABLE $tabla_reportes (
-            id mediumint(9) NOT NULL AUTO_INCREMENT,
-            vehiculo_id mediumint(9) NOT NULL,
-            vehiculo_siglas varchar(20) NOT NULL,
-            vehiculo_nombre varchar(100) NOT NULL,
-            odometro_inicial float NOT NULL,
-            odometro_final float NOT NULL,
-            fecha_inicial date NOT NULL,
-            hora_inicial time NOT NULL,
-            fecha_final date NOT NULL,
-            hora_final time NOT NULL,
-            distancia_total float NOT NULL,
-            conductor_id int(11) NOT NULL,
-            conductor varchar(100) NOT NULL,
-            movimientos_incluidos text NOT NULL,
-            numero_mensaje varchar(50) DEFAULT NULL,
-            firmante_id mediumint(9) DEFAULT NULL,
-            fecha_reporte date NOT NULL,
-            estado varchar(20) DEFAULT 'pendiente',
-            archivo_pdf varchar(255) DEFAULT NULL,
-            notas text DEFAULT NULL,
-            creado_en datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY vehiculo_idx (vehiculo_id)
-        ) $charset_collate;";
-
-            require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-            dbDelta($sql);
-        }
-
-        return true;
     }
 }

@@ -326,7 +326,10 @@ class GPV_Plugin
         }
     }
 }
-
+// Iniciar sesión PHP si no está iniciada
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 // Función de inicialización del plugin
 function GPV()
 {
